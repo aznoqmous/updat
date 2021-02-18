@@ -1,0 +1,313 @@
+#!/bin/bash
+
+# EXAMPLE CONFIG (updat.conf file inside /home/username)
+# user username
+# contao_password abcdefg
+# repository vendor/repo:branch # branch is facultative
+# domain domain.com
+# php_ver 7.3 # facultative
+
+user=""
+contao_password=""
+repository=""
+domain=""
+
+###############
+# DEFINITIONS #
+###############
+
+check_variable(){
+  variable="$1"
+  if [[ -z "$variable" ]];
+  then
+    exit;
+  else
+    echo $variable: ${!variable}
+  fi
+}
+
+get_php_version(){
+  # Get PHP version from user apache conf
+  user="$1"
+  conf="/etc/apache2/sites-available/$user.conf"
+  php_ver=$(cat "$conf" | grep "define PHP_VERSION" | sed -e "s#define PHP_VERSION##g" | sed -e "s#\"##g" | sed "s/ //g")
+  if [[ -z php_ver ]]
+  then
+    php_ver=$(cat "$conf" | grep "php-fpm" | sed -e "s#^.*php##g" | sed -e "s#-fpm.*\$##g" | sed "s/ //g")
+  fi
+  echo "$php_ver"
+}
+
+check_server_disk_usage(){
+  min_disk_usage=5000000 # ~ 5GB
+
+  project_size=$(du -s "$install_dir" | tr "\t" "\n" | head -n 1)
+  project_size_h=$(du -hs "$install_dir" | tr "\t" "\n" | head -n 1)
+  space_left=$(df "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 4 | head -n 1)
+  space_left_h=$(df -h "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 4 | head -n 1)
+
+  if [[ $(($space_left - $project_size)) -gt $min_disk_usage ]]
+  then
+    echo "Space left on /home : $space_left_h "
+    echo "Project estimated size : $project_size_h"
+  else
+    echo "Not enough disk space to perform update !"
+    exit;
+  fi
+}
+
+load_config(){
+  config_file="updat.conf"
+
+  if [[ -f "$config_file" ]]
+  then
+    echo "" > /dev/null;
+  else
+    echo "$(pwd)/updat.conf doesnt exists";
+    exit;
+  fi
+
+  # load variables
+  while read var value
+  do
+    export "$var"=$value
+  done < "$config_file"
+
+  echo "#################"
+  echo "# UPDATE CONFIG #"
+  echo "#################"
+
+  # check required variables
+  check_variable "user"
+  check_variable "contao_password"
+  check_variable "domain"
+
+  # parse repository branch if given
+  if [[ -z $(echo "$repository" | sed -e "s/^[^:]*//g") ]]
+  then
+      repository_branch="master"
+  else
+      repository_branch=$(echo "$repository" | sed -e "s/^[^:]*//g")
+      repository_branch=$(echo "$repository_branch" | sed "s/://g")
+      repository=$(echo "$repository" | sed -e "s/:.*$//g")
+  fi
+  check_variable "repository"
+  check_variable "repository_branch"
+
+  if [[ -z "$php_ver" ]]
+  then
+    php_ver=$(get_php_version "$user")
+  fi
+  check_variable "php_ver"
+
+  backup_folder="/home/$user/_backup"
+  install_dir="/home/$user/www"
+  temp_install_dir="/home/$user/_www"
+  temp_old_install_dir="/home/$user/www_old"
+
+  echo ""
+
+  disk_usage=$(check_server_disk_usage)
+  echo "$disk_usage";
+
+  read -p "Is it ok ?";
+}
+
+php_ver_composer(){
+   "/usr/local/share/php$php_ver/bin/php" -d memory_limit=-1 "/usr/local/bin/composer" $@
+}
+
+backup_save(){
+  # Copy files directory
+  path="$1";
+  source="$install_dir/$path"
+  destination="$backup_folder/$path"
+  if [ -d "$source" ] || [ -f "$source" ]
+  then
+    echo "Saving $source to $destination";
+  fi
+
+  if [[ -d "$source" ]]
+  then
+    mkdir -p $(dirname "$destination");
+    destination=$(dirname "$destination");
+    cp -R "$source" "$destination";
+  fi
+  if [[ -f "$source" ]]
+  then
+    mkdir -p $(dirname "$destination");
+    cp "$source" "$destination";
+  fi
+}
+
+backup_load(){
+  path="$1";
+  source="$backup_folder/$path";
+  destination="$temp_install_dir/$path";
+  if [[ -d "$source" ]]
+  then
+    mkdir -p $(dirname "$destination");
+    destination=$(dirname "$destination");
+    cp -R "$source" "$destination";
+  fi
+  if [[ -f "$source" ]]
+  then
+    mkdir -p $(dirname "$destination");
+    cp "$source" "$destination";
+  fi
+
+  if [ -d "$source" ] || [ -f "$source" ]
+  then
+    echo "Loading $source to $destination";
+  fi
+}
+
+save_local_files(){
+  backup_save "files";
+  backup_save "system/config/localconfig.php";
+  backup_save "web/share";
+  backup_save ".env.local";
+  backup_save ".env";
+}
+
+load_local_files(){
+  backup_load "files";
+  backup_load "system/config/localconfig.php";
+  backup_load "web/share";
+  backup_load ".env.local";
+  backup_load ".env";
+}
+
+# nicer output for composer/npm installs
+hilite(){
+  error=""
+  name="$1"
+  echo "$name..."
+  echo ""
+  while read line
+  do
+    if [[ -z $(echo "$line" | grep -E "access right|not found|fatal") ]]
+    then
+      echo "" > /dev/null
+    else
+      error="1"
+    fi
+    if [[ -z "$error" ]]
+    then
+      echo -e "\r\033[1A\033[0K $line";
+    else
+      echo "$line"
+    fi
+  done
+  RED="\033[0;31m"
+  GREEN="\033[0;32m"
+  NC="\033[0m"
+  if [[ -z "$error" ]]
+    then
+      echo -e "\r\033[1A\033[0K\r\033[1A\033[0K[${GREEN}completed${NC}] $name";
+    else
+      echo -e "\r\033[1A\033[0K\r\033[1A\033[0K[${RED}error${NC}] $name";
+      exit
+  fi
+}
+
+contao_post_install(){
+  vendor/bin/contao-console contao:migrate -n > /dev/null 2>&1;
+  vendor/bin/contao-console contao:user:password admin -p "$contao_password" > /dev/null 2>&1;
+  vendor/bin/contao-console assets:install web --symlink > /dev/null 2>&1;
+  vendor/bin/contao-console contao:symlinks > /dev/null 2>&1;
+}
+
+contao_last_log(){
+  project_dir="$1"
+  log_dir="$project_dir/var/logs"
+
+  if [[ -d "$log_dir" ]]; then
+    error_log_file=$(ls "$log_dir" | tr " " "\n" | tail -n 1)
+    error_log_file="$log_dir/$error_log_file"
+    if [[ -f "$error_log_file" ]]; then
+      log=$(cat "$error_log_file" | grep -E "ERROR|CRITICAL" | tail -n 1)
+      if [[ -z "$log" ]]; then
+        echo "" > /dev/null
+      else
+        echo "CONTAO LOGS ($error_log_file)"
+        echo " $log"
+      fi
+    fi
+  fi
+}
+
+apache_last_error_log(){
+  log_dir="/home/$user/log/apache2"
+  if [[ -d "$log_dir" ]]; then
+    error_log_file=$(ls "$log_dir" | tr " " "\n" | grep "error" | head -n 1)
+    error_log_file="$log_dir/$error_log_file"
+    if [[ -f "$error_log_file" ]]; then
+      log=$(cat "$error_log_file" | tail -n 1)
+      if [[ -z "$log" ]]; then
+        echo "" > /dev/null
+      else
+        echo "APACHE LOGS ($error_log_file)"
+        echo " $log"
+      fi
+    fi
+  fi
+}
+
+###########################
+# DEPLOYMENT SCRIPT START #
+###########################
+start=$(date +"%s")
+
+load_config
+
+# Init Bitbucket SSH Key
+eval $(ssh-agent) > /dev/null 2>&1;
+ssh-add /root/.ssh/bitbucket_rsa > /dev/null 2>&1;
+
+# Save local files
+save_local_files 2>&1 | hilite "Saving local files"
+
+# Clone project
+rm -rf "$temp_install_dir";
+git clone "git@bitbucket.org:$repository" -b "$repository_branch" "$temp_install_dir" 2>&1 | hilite "Git clone $repository";
+
+# Load saved local files
+load_local_files 2>&1 | hilite "Loading local files"
+
+# Composer build
+cd "$temp_install_dir";
+php_ver_composer install 2>&1 | hilite "Composer install using php$php_ver";
+
+# Npm build
+npm install 2>&1 | hilite "NPM install";
+npm run build 2>&1 | hilite "NPM build";
+
+rm -rf "$temp_old_install_dir"
+mv "$install_dir" "$temp_old_install_dir"
+mv "$temp_install_dir" "$install_dir"
+
+cd "$install_dir"
+contao_post_install 2>&1 | hilite "Contao post install";
+chown -R $user. "/home/$user";
+
+response=$(curl -L --write-out '%{http_code}' --silent --output /dev/null "$domain");
+echo "$domain http status code [$response]";
+
+end=$(date +"%s");
+spent=$(($end - $start));
+echo "Update took $spent seconds";
+
+if [[ "$response" -ne "200" ]]
+then
+  echo "Status [$response] detected while loading updated site, reverting..."
+
+  contao_last_log "$install_dir"
+  apache_last_error_log
+
+  mv "$install_dir" "$temp_install_dir"
+  mv "$temp_old_install_dir" "$install_dir"
+else
+  read -p "Do you want to remove previous version website files ? (CTRL+C to cancel)";
+  rm -rf "$temp_old_install_dir"
+fi
