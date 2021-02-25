@@ -168,6 +168,7 @@ save_local_files(){
   backup_save "web/share";
   backup_save ".env.local";
   backup_save ".env";
+  backup_save "config";
 }
 
 load_local_files(){
@@ -176,6 +177,7 @@ load_local_files(){
   backup_load "web/share";
   backup_load ".env.local";
   backup_load ".env";
+  backup_save "config";
 }
 
 # nicer output for composer/npm installs
