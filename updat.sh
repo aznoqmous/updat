@@ -83,12 +83,6 @@ parse_yml(){
       export "$current_var"="$lastValue"
     fi
   done < "$yml_file"
-
-  echo $user
-  echo $repository
-  echo $domain
-  echo $contao_password
-  echo $backup
 }
 
 load_config(){
@@ -135,6 +129,12 @@ load_config(){
   install_dir="/home/$user/www"
   temp_install_dir="/home/$user/_www"
   temp_old_install_dir="/home/$user/www_old"
+
+  echo "backup:"
+  for files in $backup
+  do
+    echo " - $files"
+  done
 
   echo ""
 
