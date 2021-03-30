@@ -56,22 +56,53 @@ check_server_disk_usage(){
   fi
 }
 
+parse_yml(){
+  yml_file="$1"
+
+  if [[ -n $(cat "$yml_file" | tail -n 1) ]]
+  then
+    echo "" >> "$yml_file"
+    echo "" >> "$yml_file"
+  fi
+
+  while read var value
+  do
+    if [[ -z $(echo "$var" | grep -v ":") ]]; then
+      # basic key: value
+      current_var=$(echo "$var" | sed "s/://g")
+      lastValue="$value"
+    else
+      # set - items
+      lastValue="$lastValue $value"
+      lastValue=$(echo "$lastValue" | sed -E "s/^ //g")
+    fi
+
+    if [[ -z $(echo "$lastValue") ]]; then
+      continue;
+    else
+      export "$current_var"="$lastValue"
+    fi
+  done < "$yml_file"
+
+  echo $user
+  echo $repository
+  echo $domain
+  echo $contao_password
+  echo $backup
+}
+
 load_config(){
-  config_file="updat.conf"
+  config_file="updat.yml"
 
   if [[ -f "$config_file" ]]
   then
     echo "" > /dev/null;
   else
-    echo "$(pwd)/updat.conf doesnt exists";
+    echo "$(pwd)/updat.yml doesnt exists";
     exit;
   fi
 
-  # load variables
-  while read var value
-  do
-    export "$var"=$value
-  done < "$config_file"
+  parse_yml "$config_file"
 
   echo "#################"
   echo "# UPDATE CONFIG #"
@@ -163,21 +194,17 @@ backup_load(){
 }
 
 save_local_files(){
-  backup_save "files";
-  backup_save "system/config/localconfig.php";
-  backup_save "web/share";
-  backup_save ".env.local";
-  backup_save ".env";
-  backup_save "config";
+  for files in $backup
+  do
+    backup_save "$files"
+  done
 }
 
 load_local_files(){
-  backup_load "files";
-  backup_load "system/config/localconfig.php";
-  backup_load "web/share";
-  backup_load ".env.local";
-  backup_load ".env";
-  backup_save "config";
+  for files in $backup
+  do
+    backup_load "$files"
+  done
 }
 
 # nicer output for composer/npm installs
