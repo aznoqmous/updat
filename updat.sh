@@ -15,7 +15,6 @@ domain=""
 ###############
 # DEFINITIONS #
 ###############
-
 check_variable(){
   variable="$1"
   if [[ -z "$variable" ]];
@@ -142,6 +141,19 @@ load_config(){
   echo "$disk_usage";
 
   read -p "Is it ok ?";
+}
+
+lock_file=".updatlock"
+lock_updat(){
+  if [[ -f "$lock_file" ]]; then
+    echo "Update prevented by $lock_file"
+    exit;
+  fi
+  echo "" > "$lock_file"
+}
+
+unlock_updat(){
+  rm -f "$lock_file"
 }
 
 php_ver_composer(){
@@ -290,6 +302,8 @@ start=$(date +"%s")
 
 load_config
 
+lock_updat
+
 # Init Bitbucket SSH Key
 eval $(ssh-agent) > /dev/null 2>&1;
 ssh-add /root/.ssh/bitbucket_rsa > /dev/null 2>&1;
@@ -340,3 +354,5 @@ else
   read -p "Do you want to remove previous version website files ? (CTRL+C to cancel)";
   rm -rf "$temp_old_install_dir"
 fi
+
+unlock_updat
