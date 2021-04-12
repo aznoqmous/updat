@@ -1,9 +1,10 @@
-user: username
-contao_password: abcdefg
-repository: vendor/repo:branch
-domain: domain.com
-php_ver: 7.3
-backup:
+user: username # required
+contao_password: abcdefg # required
+repository: vendor/repo:branch # :bracnch is optionnal, defaults to master
+domain: domain.com # optionnal
+php_ver: 7.3 # optionnal
+web_dir: www # optionnal defaults to www, take note that the real web_dir will be : "/home/$user/$web_dir"
+backup: # optionnal, those folders/files will be saved before update and re-installed after update completion
   - files
   - config/parameters.yml
   - .env.local

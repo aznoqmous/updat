@@ -11,10 +11,27 @@ user=""
 contao_password=""
 repository=""
 domain=""
+php_ver=""
+web_dir="www"
+backup_files=""
+
+tstamp=$(date +"%s")
+min_disk_usage=5000000 # ~ 5GB, used inside check_server_disk_usage
 
 ###############
 # DEFINITIONS #
 ###############
+lock_file=".updatlock"
+lock_updat(){
+  if [[ -f "$lock_file" ]]; then
+    echo "Update prevented by $lock_file"
+    exit;
+  fi
+  echo "" > "$lock_file"
+}
+unlock_updat(){
+  rm -f "$current_directory/$lock_file"
+}
 
 check_variable(){
   variable="$1"
@@ -23,6 +40,11 @@ check_variable(){
     exit;
   else
     echo $variable: ${!variable}
+  fi
+  if [[ -z ${!variable} ]];
+  then
+    echo "$variable is not defined !"
+    exit;
   fi
 }
 
@@ -39,7 +61,7 @@ get_php_version(){
 }
 
 check_server_disk_usage(){
-  min_disk_usage=5000000 # ~ 5GB
+  mkdir -p "$install_dir"
 
   project_size=$(du -s "$install_dir" | tr "\t" "\n" | head -n 1)
   project_size_h=$(du -hs "$install_dir" | tr "\t" "\n" | head -n 1)
@@ -48,7 +70,7 @@ check_server_disk_usage(){
 
   if [[ $(($space_left - $project_size)) -gt $min_disk_usage ]]
   then
-    echo "Space left on /home : $space_left_h "
+    echo "Space left on /home/$user : $space_left_h "
     echo "Project estimated size : $project_size_h"
   else
     echo "Not enough disk space to perform update !"
@@ -83,12 +105,6 @@ parse_yml(){
       export "$current_var"="$lastValue"
     fi
   done < "$yml_file"
-
-  echo $user
-  echo $repository
-  echo $domain
-  echo $contao_password
-  echo $backup
 }
 
 load_config(){
@@ -112,6 +128,7 @@ load_config(){
   check_variable "user"
   check_variable "contao_password"
   check_variable "domain"
+  check_variable "web_dir"
 
   # parse repository branch if given
   if [[ -z $(echo "$repository" | sed -e "s/^[^:]*//g") ]]
@@ -132,9 +149,15 @@ load_config(){
   check_variable "php_ver"
 
   backup_folder="/home/$user/_backup"
-  install_dir="/home/$user/www"
-  temp_install_dir="/home/$user/_www"
-  temp_old_install_dir="/home/$user/www_old"
+  install_dir="/home/$user/$web_dir"
+  temp_install_dir="/home/$user/$web_dir""_$tstamp"
+  temp_old_install_dir="/home/$user/old_$web_dir""_$tstamp"
+
+  echo "backup:"
+  for files in $backup
+  do
+    echo " - $files"
+  done
 
   echo ""
 
@@ -287,8 +310,10 @@ apache_last_error_log(){
 # DEPLOYMENT SCRIPT START #
 ###########################
 start=$(date +"%s")
-
+current_directory=$(pwd)
 load_config
+
+lock_updat
 
 # Init Bitbucket SSH Key
 eval $(ssh-agent) > /dev/null 2>&1;
@@ -340,3 +365,5 @@ else
   read -p "Do you want to remove previous version website files ? (CTRL+C to cancel)";
   rm -rf "$temp_old_install_dir"
 fi
+
+unlock_updat
