@@ -1,13 +1,34 @@
 # aznoqmous/updat
 
-Place a `updat.conf` file inside your user directory.  
-By default installation directory is `/home/username/www` and cannot be changed.  
+1. `cd` and place a `updat.yml` file inside your user directory
+2. Run `updat.sh` script
 
-```sh
-# EXAMPLE CONFIG (updat.conf file inside /home/username)
-user username
-contao_password abcdefg
-repository vendor/repo:branch # branch is facultative
-domain domain.com
-php_ver 7.3 # facultative
+By default installation directory is `/home/username/www` and can be changed with the `web_dir` configuration property.
+
+```yml
+# EXAMPLE CONFIG (updat.yml file inside /home/username)
+
+user: username
+# required
+
+contao_password: abcdefg
+# required
+
+repository: vendor/repo:branch
+# :branch is optionnal, defaults to master
+
+domain: domain.com
+# optionnal
+
+php_ver: 7.3
+# optionnal
+
+web_dir: www
+# optionnal defaults to www, take note that the real web_dir will be : "/home/$user/$web_dir"
+
+backup:
+  - files
+  - config/parameters.yml
+  - .env.local
+# optionnal, those folders/files will be saved before update and re-installed after update completion
 ```
