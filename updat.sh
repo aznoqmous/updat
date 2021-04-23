@@ -30,7 +30,23 @@ lock_updat(){
   echo "" > "$lock_file"
 }
 unlock_updat(){
-  rm -f "$current_directory/$lock_file"
+  rm -f "$lock_file"
+}
+
+current_directory=$(pwd)
+log_dir="$current_directory/_logs"
+rm -rf "$log_dir"
+mkdir -p "$log_dir"
+log(){
+  log_name="$1"
+  log_content="$2"
+  log_file="$log_dir/$log_name.log"
+  if [[ -f "$log_file" ]]
+  then
+    echo "$log_content" >> "$log_file"
+  else
+    echo "$log_content" > "$log_file"
+  fi
 }
 
 check_variable(){
@@ -234,11 +250,18 @@ load_local_files(){
 hilite(){
   error=""
   name="$1"
+  log_name="$2"
   echo "$name..."
   echo ""
   while read line
   do
-    if [[ -z $(echo "$line" | grep -E "access right|not found|fatal") ]]
+    if [[ -z "$log_name" ]]; then
+        echo "" > /dev/null
+      else
+        log "$log_name" "$line"
+    fi
+
+    if [[ -z $(echo "$line" | grep -E "access right|not found|fatal|Problem") ]]
     then
       echo "" > /dev/null
     else
@@ -331,18 +354,18 @@ load_local_files 2>&1 | hilite "Loading local files"
 
 # Composer build
 cd "$temp_install_dir";
-php_ver_composer install 2>&1 | hilite "Composer install using php$php_ver";
+php_ver_composer install 2>&1 | hilite "Composer install using php$php_ver" "composer";
 
 # Npm build
-npm install 2>&1 | hilite "NPM install";
-npm run build 2>&1 | hilite "NPM build";
+npm install 2>&1 | hilite "NPM install" "npm";
+npm run build 2>&1 | hilite "NPM build" "npm";
 
 rm -rf "$temp_old_install_dir"
 mv "$install_dir" "$temp_old_install_dir"
 mv "$temp_install_dir" "$install_dir"
 
 cd "$install_dir"
-contao_post_install 2>&1 | hilite "Contao post install";
+contao_post_install 2>&1 | hilite "Contao post install" "contao";
 chown -R $user. "/home/$user";
 
 response=$(curl -L --write-out '%{http_code}' --silent --output /dev/null "$domain");
@@ -351,6 +374,7 @@ echo "$domain http status code [$response]";
 end=$(date +"%s");
 spent=$(($end - $start));
 echo "Update took $spent seconds";
+unlock_updat
 
 if [[ "$response" -ne "200" ]]
 then
@@ -366,4 +390,3 @@ else
   rm -rf "$temp_old_install_dir"
 fi
 
-unlock_updat
