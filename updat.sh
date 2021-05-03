@@ -21,7 +21,7 @@ min_disk_usage=5000000 # ~ 5GB, used inside check_server_disk_usage
 ###############
 # DEFINITIONS #
 ###############
-lock_file=".updatlock"
+lock_file="$(pwd)/.updatlock"
 lock_updat(){
   if [[ -f "$lock_file" ]]; then
     echo "Update prevented by $lock_file"
@@ -354,7 +354,7 @@ load_local_files 2>&1 | hilite "Loading local files"
 
 # Composer build
 cd "$temp_install_dir";
-php_ver_composer install 2>&1 | hilite "Composer install using php$php_ver" "composer";
+php_ver_composer install --no-interaction 2>&1 | hilite "Composer install using php$php_ver" "composer";
 
 # Npm build
 npm install 2>&1 | hilite "NPM install" "npm";
