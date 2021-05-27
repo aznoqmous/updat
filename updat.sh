@@ -347,7 +347,7 @@ save_local_files 2>&1 | hilite "Saving local files"
 
 # Clone project
 rm -rf "$temp_install_dir";
-git clone "git@bitbucket.org:$repository" -b "$repository_branch" "$temp_install_dir" 2>&1 | hilite "Git clone $repository";
+git clone "git@bitbucket.org:$repository" -b "$repository_branch" "$temp_install_dir" 2>&1 | hilite "Git clone $repository" "git";
 
 # Load saved local files
 load_local_files 2>&1 | hilite "Loading local files"
