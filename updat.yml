@@ -1,6 +1,7 @@
 user: username # required
-contao_password: abcdefg # required
-repository: vendor/repo:branch # :bracnch is optionnal, defaults to master
+type: contao # contao | bedrock
+admin_password: abcdefg # required
+repository: vendor/repo:branch # :branch is optionnal, defaults to master
 domain: domain.com # optionnal
 php_ver: 7.3 # optionnal
 web_dir: www # optionnal defaults to www, take note that the real web_dir will be : "/home/$user/$web_dir"

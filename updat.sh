@@ -2,13 +2,15 @@
 
 # EXAMPLE CONFIG (updat.conf file inside /home/username)
 # user username
-# contao_password abcdefg
+# admin_password abcdefg
 # repository vendor/repo:branch # branch is facultative
 # domain domain.com
 # php_ver 7.3 # facultative
 
 user=""
-contao_password=""
+type=""
+admin_username="admin"
+admin_password=""
 repository=""
 domain=""
 php_ver=""
@@ -32,6 +34,18 @@ lock_updat(){
 unlock_updat(){
   rm -f "$lock_file"
 }
+check_args(){
+  for arg in $@; do
+    if [[ $arg == "-f" ]]; then
+      force=1
+    fi
+  done
+}
+check_args $@
+
+if [[ "$force" ]]; then
+  unlock_updat
+fi
 
 current_directory=$(pwd)
 log_dir="$current_directory/_logs"
@@ -84,10 +98,12 @@ check_server_disk_usage(){
   space_left=$(df "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 4 | head -n 1)
   space_left_h=$(df -h "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 4 | head -n 1)
 
+  echo "Space left on /home/$user : $space_left_h "
+  echo "Project estimated size : $project_size_h"
+
   if [[ $(($space_left - $project_size)) -gt $min_disk_usage ]]
   then
-    echo "Space left on /home/$user : $space_left_h "
-    echo "Project estimated size : $project_size_h"
+    echo "" > /dev/null
   else
     echo "Not enough disk space to perform update !"
     exit;
@@ -142,7 +158,7 @@ load_config(){
 
   # check required variables
   check_variable "user"
-  check_variable "contao_password"
+  check_variable "type"
   check_variable "domain"
   check_variable "web_dir"
 
@@ -214,22 +230,25 @@ backup_load(){
   path="$1";
   source="$backup_folder/$path";
   destination="$temp_install_dir/$path";
+
+  if [ -d "$source" ] || [ -f "$source" ]
+  then
+    echo "Loading $source to $destination";
+  fi
+
   if [[ -d "$source" ]]
   then
     mkdir -p $(dirname "$destination");
     destination=$(dirname "$destination");
     cp -R "$source" "$destination";
   fi
+
   if [[ -f "$source" ]]
   then
     mkdir -p $(dirname "$destination");
     cp "$source" "$destination";
   fi
 
-  if [ -d "$source" ] || [ -f "$source" ]
-  then
-    echo "Loading $source to $destination";
-  fi
 }
 
 save_local_files(){
@@ -260,7 +279,6 @@ hilite(){
       else
         log "$log_name" "$line"
     fi
-
     if [[ -z $(echo "$line" | grep -E "access right|not found|fatal|Problem") ]]
     then
       echo "" > /dev/null
@@ -288,11 +306,38 @@ hilite(){
 
 contao_post_install(){
   vendor/bin/contao-console contao:migrate -n > /dev/null 2>&1;
-  vendor/bin/contao-console contao:user:password admin -p "$contao_password" > /dev/null 2>&1;
-  vendor/bin/contao-console assets:install web --symlink > /dev/null 2>&1;
-  vendor/bin/contao-console contao:symlinks > /dev/null 2>&1;
+  if [[ -z "$admin_password" ]]; then
+    echo "" > /dev/null
+  else
+      vendor/bin/contao-console contao:user:password "$admin_username" -p "$admin_password" > /dev/null 2>&1;
+  fi
+  composer run post-install-cmd --no-interaction
 }
-
+bedrock_post_install(){
+  if [[ -z "$admin_password" ]]; then
+    echo "" > /dev/null
+  else
+    curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+    if [[ -z $(php wp-cli.phar --allow-root user list | sed "s/administrator//g" | grep "$admin_username") ]]
+    then
+      echo "Creating user $admin_username"
+      php wp-cli.phar --allow-root user create "$admin_username" support@addictic.fr --user_pass="$admin_password" --role="administrator"
+    else
+      echo "Updating $admin_username"
+      php wp-cli.phar --allow-root user update "$admin_username" --user_pass="$admin_password"
+      php wp-cli.phar --allow-root user update "$admin_username" --role="administrator"
+    fi
+  fi
+}
+post_install(){
+  if [[ "$type" == "contao" ]]; then
+    contao_post_install 2>&1 | hilite "Contao post install" "contao";
+  fi
+  if [[ "$type" == "bedrock" ]]; then
+    bedrock_post_install 2>&1 | hilite "Bedrock post install" "bedrock";
+  fi
+  chown -R $user. "/home/$user";
+}
 contao_last_log(){
   project_dir="$1"
   log_dir="$project_dir/var/logs"
@@ -309,6 +354,11 @@ contao_last_log(){
         echo " $log"
       fi
     fi
+  fi
+}
+custom_log(){
+  if [[ "$type" == "contao" ]]; then
+    contao_last_log "$install_dir"
   fi
 }
 
@@ -357,16 +407,19 @@ cd "$temp_install_dir";
 php_ver_composer install --no-interaction 2>&1 | hilite "Composer install using php$php_ver" "composer";
 
 # Npm build
-npm install 2>&1 | hilite "NPM install" "npm";
-npm run build 2>&1 | hilite "NPM build" "npm";
+if [[ -f "package.json" ]]; then
+  npm install 2>&1 | hilite "NPM install" "npm";
+  npm run build 2>&1 | hilite "NPM build" "npm";
+fi
 
+# post install scripts
+post_install
+
+# test installation
 rm -rf "$temp_old_install_dir"
 mv "$install_dir" "$temp_old_install_dir"
 mv "$temp_install_dir" "$install_dir"
-
 cd "$install_dir"
-contao_post_install 2>&1 | hilite "Contao post install" "contao";
-chown -R $user. "/home/$user";
 
 response=$(curl -L --write-out '%{http_code}' --silent --output /dev/null "$domain");
 echo "$domain http status code [$response]";
@@ -380,7 +433,7 @@ if [[ "$response" -ne "200" ]]
 then
   echo "Status [$response] detected while loading updated site, reverting..."
 
-  contao_last_log "$install_dir"
+  custom_log
   apache_last_error_log
 
   mv "$install_dir" "$temp_install_dir"
