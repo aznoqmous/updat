@@ -279,7 +279,7 @@ hilite(){
       else
         log "$log_name" "$line"
     fi
-    if [[ -z $(echo "$line" | grep -E "access right|not found|fatal|Problem") ]]
+    if [[ -z $(echo "$line" | grep -E "access right|not found|fatal|Problem|RuntimeException") ]]
     then
       echo "" > /dev/null
     else
@@ -404,7 +404,9 @@ load_local_files 2>&1 | hilite "Loading local files"
 
 # Composer build
 cd "$temp_install_dir";
-php_ver_composer install --no-interaction 2>&1 | hilite "Composer install using php$php_ver" "composer";
+if [[ -f "composer.json" ]]; then
+  php_ver_composer install --no-interaction 2>&1 | hilite "Composer install using php$php_ver" "composer";
+fi
 
 # Npm build
 if [[ -f "package.json" ]]; then

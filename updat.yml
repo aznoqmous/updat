@@ -1,5 +1,5 @@
 user: username # required
-type: contao # contao | bedrock
+type: contao # contao | bedrock | git
 admin_password: abcdefg # required
 repository: vendor/repo:branch # :branch is optionnal, defaults to master
 domain: domain.com # optionnal
