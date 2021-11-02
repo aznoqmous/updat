@@ -256,6 +256,7 @@ save_local_files(){
   do
     backup_save "$files"
   done
+  chown -R $user. "/home/$user";
 }
 
 load_local_files(){
