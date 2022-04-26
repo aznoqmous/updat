@@ -390,7 +390,7 @@ load_config
 lock_updat
 
 # Init Bitbucket SSH Key
-eval $(ssh-agent) > /dev/null 2>&1;
+eval $(ssh-agent -t 120) > /dev/null 2>&1;
 ssh-add /root/.ssh/bitbucket_rsa > /dev/null 2>&1;
 
 # Save local files
