@@ -432,7 +432,7 @@ spent=$(($end - $start));
 echo "Update took $spent seconds";
 unlock_updat
 
-if [[ "$response" -ne "200" ]]
+if {  [ "$response" -ne "200" ] && [ $force != 1 ]; };
 then
   echo "Status [$response] detected while loading updated site, reverting..."
 
