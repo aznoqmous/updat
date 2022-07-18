@@ -1,11 +1,6 @@
 #!/bin/bash
 
-# EXAMPLE CONFIG (updat.conf file inside /home/username)
-# user username
-# admin_password abcdefg
-# repository vendor/repo:branch # branch is facultative
-# domain domain.com
-# php_ver 7.3 # facultative
+# EXAMPLE CONFIG (see updat.yml)
 
 user=""
 type=""
@@ -24,12 +19,13 @@ min_disk_usage=5000000 # ~ 5GB, used inside check_server_disk_usage
 # DEFINITIONS #
 ###############
 lock_file="$(pwd)/.updatlock"
+
 lock_updat(){
   if [[ -f "$lock_file" ]]; then
     echo "Update prevented by $lock_file"
     exit;
   fi
-  echo "" > "$lock_file"
+  echo "$$" > "$lock_file"
 }
 unlock_updat(){
   rm -f "$lock_file"
@@ -39,8 +35,12 @@ check_args(){
     if [[ $arg == "-f" ]]; then
       force=1
     fi
+    if [[ $arg == "-ni" ]]; then
+      no_interaction=1
+    fi
   done
 }
+
 check_args $@
 
 if [[ "$force" ]]; then
@@ -51,6 +51,7 @@ current_directory=$(pwd)
 log_dir="$current_directory/_logs"
 rm -rf "$log_dir"
 mkdir -p "$log_dir"
+
 log(){
   log_name="$1"
   log_content="$2"
@@ -79,15 +80,11 @@ check_variable(){
 }
 
 get_php_version(){
-  # Get PHP version from user apache conf
-  user="$1"
-  conf="/etc/apache2/sites-available/$user.conf"
-  php_ver=$(cat "$conf" | grep "define PHP_VERSION" | sed -e "s#define PHP_VERSION##g" | sed -e "s#\"##g" | sed "s/ //g")
-  if [[ -z php_ver ]]
-  then
-    php_ver=$(cat "$conf" | grep "php-fpm" | sed -e "s#^.*php##g" | sed -e "s#-fpm.*\$##g" | sed "s/ //g")
-  fi
-  echo "$php_ver"
+  # Get PHP version from running php -v with user
+  php_version=$(runuser -l "$user" -c 'php -v | tr " " "\n" | head -n 2 | tail -n 1')
+  version=$(echo "$php_version" | tr "." "\n" | head -n 1)
+  major_version=$(echo "$php_version" | tr "." "\n" | head -n 2 | tail -n 1)
+  echo "$version.$major_version"
 }
 
 check_server_disk_usage(){
@@ -178,7 +175,6 @@ load_config(){
   then
     php_ver=$(get_php_version "$user")
   fi
-  check_variable "php_ver"
 
   backup_folder="/home/$user/_backup"
   install_dir="/home/$user/$web_dir"
@@ -196,7 +192,12 @@ load_config(){
   disk_usage=$(check_server_disk_usage)
   echo "$disk_usage";
 
-  read -p "Is it ok ?";
+  if [[ "$no_interaction" ]]
+  then
+    echo "" > /dev/null
+  else
+    read -p "Is it ok ?";
+  fi
 }
 
 php_ver_composer(){
@@ -266,7 +267,7 @@ load_local_files(){
   done
 }
 
-# nicer output for composer/npm installs
+# nicer output for composer/yarn installs
 hilite(){
   error=""
   name="$1"
@@ -406,13 +407,27 @@ load_local_files 2>&1 | hilite "Loading local files"
 # Composer build
 cd "$temp_install_dir";
 if [[ -f "composer.json" ]]; then
+
+  # set composer version following contao version
+  if [[ "$type" == "contao" ]]
+  then
+    contao_version=$(cat "composer.json" | grep manager-bundle | tr '"' '\n' | tail -n 2 | head -n 1 | sed "s#\^##g")
+    if [[ "$contao_version" == "4.13" ]]
+    then
+      composer self-update --2
+    else
+      composer self-update --1
+    fi
+  fi
+
+  # install using user's php version
   php_ver_composer install --no-interaction 2>&1 | hilite "Composer install using php$php_ver" "composer";
 fi
 
 # Npm build
 if [[ -f "package.json" ]]; then
-  npm install 2>&1 | hilite "NPM install" "npm";
-  npm run build 2>&1 | hilite "NPM build" "npm";
+  yarn 2>&1 | hilite "YARN install" "yarn";
+  yarn run build 2>&1 | hilite "YARN build" "yarn";
 fi
 
 # post install scripts
@@ -432,7 +447,7 @@ spent=$(($end - $start));
 echo "Update took $spent seconds";
 unlock_updat
 
-if {  [ "$response" -ne "200" ] && [ $force != 1 ]; };
+if [[ "$response" -ne "200" ]]
 then
   echo "Status [$response] detected while loading updated site, reverting..."
 
@@ -442,7 +457,12 @@ then
   mv "$install_dir" "$temp_install_dir"
   mv "$temp_old_install_dir" "$install_dir"
 else
-  read -p "Do you want to remove previous version website files ? (CTRL+C to cancel)";
-  rm -rf "$temp_old_install_dir"
+  if [[ "$no_interaction" ]]; then
+    echo "" > /dev/null
+  else
+    read -p "Do you want to remove previous version website files ? (CTRL+C to cancel)";
+    rm -rf "$temp_old_install_dir"
+  fi
 fi
 
+echo "Update completed!"
