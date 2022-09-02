@@ -9,3 +9,6 @@ backup: # optionnal, those folders/files will be saved before update and re-inst
   - files
   - config/parameters.yml
   - .env.local
+post_install_cmd:
+  - echo "Done";
+  - echo "Another command"

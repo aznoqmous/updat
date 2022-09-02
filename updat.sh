@@ -11,6 +11,7 @@ domain=""
 php_ver=""
 web_dir="www"
 backup_files=""
+post_install_cmd=""
 
 tstamp=$(date +"%s")
 min_disk_usage=5000000 # ~ 5GB, used inside check_server_disk_usage
@@ -20,17 +21,17 @@ min_disk_usage=5000000 # ~ 5GB, used inside check_server_disk_usage
 ###############
 lock_file="$(pwd)/.updatlock"
 
-lock_updat(){
+lock_updat() {
   if [[ -f "$lock_file" ]]; then
     echo "Update prevented by $lock_file"
-    exit;
+    exit
   fi
-  echo "$$" > "$lock_file"
+  echo "$$" >"$lock_file"
 }
-unlock_updat(){
+unlock_updat() {
   rm -f "$lock_file"
 }
-check_args(){
+check_args() {
   for arg in $@; do
     if [[ $arg == "-f" ]]; then
       force=1
@@ -52,34 +53,31 @@ log_dir="$current_directory/_logs"
 rm -rf "$log_dir"
 mkdir -p "$log_dir"
 
-log(){
+log() {
   log_name="$1"
   log_content="$2"
   log_file="$log_dir/$log_name.log"
-  if [[ -f "$log_file" ]]
-  then
-    echo "$log_content" >> "$log_file"
+  if [[ -f "$log_file" ]]; then
+    echo "$log_content" >>"$log_file"
   else
-    echo "$log_content" > "$log_file"
+    echo "$log_content" >"$log_file"
   fi
 }
 
-check_variable(){
+check_variable() {
   variable="$1"
-  if [[ -z "$variable" ]];
-  then
-    exit;
+  if [[ -z "$variable" ]]; then
+    exit
   else
     echo $variable: ${!variable}
   fi
-  if [[ -z ${!variable} ]];
-  then
+  if [[ -z ${!variable} ]]; then
     echo "$variable is not defined !"
-    exit;
+    exit
   fi
 }
 
-get_php_version(){
+get_php_version() {
   # Get PHP version from running php -v with user
   php_version=$(runuser -l "$user" -c 'php -v | tr " " "\n" | head -n 2 | tail -n 1')
   version=$(echo "$php_version" | tr "." "\n" | head -n 1)
@@ -87,7 +85,7 @@ get_php_version(){
   echo "$version.$major_version"
 }
 
-check_server_disk_usage(){
+check_server_disk_usage() {
   mkdir -p "$install_dir"
 
   project_size=$(du -s "$install_dir" | tr "\t" "\n" | head -n 1)
@@ -98,26 +96,23 @@ check_server_disk_usage(){
   echo "Space left on /home/$user : $space_left_h "
   echo "Project estimated size : $project_size_h"
 
-  if [[ $(($space_left - $project_size)) -gt $min_disk_usage ]]
-  then
-    echo "" > /dev/null
+  if [[ $(($space_left - $project_size)) -gt $min_disk_usage ]]; then
+    echo "" >/dev/null
   else
     echo "Not enough disk space to perform update !"
-    exit;
+    exit
   fi
 }
 
-parse_yml(){
+parse_yml() {
   yml_file="$1"
 
-  if [[ -n $(cat "$yml_file" | tail -n 1) ]]
-  then
-    echo "" >> "$yml_file"
-    echo "" >> "$yml_file"
+  if [[ -n $(cat "$yml_file" | tail -n 1) ]]; then
+    echo "" >>"$yml_file"
+    echo "" >>"$yml_file"
   fi
 
-  while read var value
-  do
+  while read var value; do
     if [[ -z $(echo "$var" | grep -v ":") ]]; then
       # basic key: value
       current_var=$(echo "$var" | sed "s/://g")
@@ -129,22 +124,21 @@ parse_yml(){
     fi
 
     if [[ -z $(echo "$lastValue") ]]; then
-      continue;
+      continue
     else
       export "$current_var"="$lastValue"
     fi
-  done < "$yml_file"
+  done <"$yml_file"
 }
 
-load_config(){
+load_config() {
   config_file="updat.yml"
 
-  if [[ -f "$config_file" ]]
-  then
-    echo "" > /dev/null;
+  if [[ -f "$config_file" ]]; then
+    echo "" >/dev/null
   else
-    echo "$(pwd)/updat.yml doesnt exists";
-    exit;
+    echo "$(pwd)/updat.yml doesnt exists"
+    exit
   fi
 
   parse_yml "$config_file"
@@ -159,22 +153,24 @@ load_config(){
   check_variable "domain"
   check_variable "web_dir"
 
+  if [[ -z "$php_ver" ]]; then
+    php_ver=$(get_php_version "$user")
+  fi
+
+  echo "php_ver: $php_ver"
+
+
   # parse repository branch if given
-  if [[ -z $(echo "$repository" | sed -e "s/^[^:]*//g") ]]
-  then
-      repository_branch="master"
+  if [[ -z $(echo "$repository" | sed -e "s/^[^:]*//g") ]]; then
+    repository_branch="master"
   else
-      repository_branch=$(echo "$repository" | sed -e "s/^[^:]*//g")
-      repository_branch=$(echo "$repository_branch" | sed "s/://g")
-      repository=$(echo "$repository" | sed -e "s/:.*$//g")
+    repository_branch=$(echo "$repository" | sed -e "s/^[^:]*//g")
+    repository_branch=$(echo "$repository_branch" | sed "s/://g")
+    repository=$(echo "$repository" | sed -e "s/:.*$//g")
   fi
   check_variable "repository"
   check_variable "repository_branch"
 
-  if [[ -z "$php_ver" ]]
-  then
-    php_ver=$(get_php_version "$user")
-  fi
 
   backup_folder="/home/$user/_backup"
   install_dir="/home/$user/$web_dir"
@@ -182,114 +178,101 @@ load_config(){
   temp_old_install_dir="/home/$user/old_$web_dir""_$tstamp"
 
   echo "backup:"
-  for files in $backup
-  do
+  for files in $backup; do
     echo " - $files"
   done
 
   echo ""
 
   disk_usage=$(check_server_disk_usage)
-  echo "$disk_usage";
+  echo "$disk_usage"
 
-  if [[ "$no_interaction" ]]
-  then
-    echo "" > /dev/null
+  if [[ "$no_interaction" ]]; then
+    echo "" >/dev/null
   else
-    read -p "Is it ok ?";
+    read -p "Is it ok ?"
   fi
 }
 
-php_ver_composer(){
-   "/usr/local/share/php$php_ver/bin/php" -d memory_limit=-1 "/usr/local/bin/composer" $@
+php_ver_composer() {
+  "/usr/local/share/php$php_ver/bin/php" -d memory_limit=-1 "/usr/local/bin/composer" $@
 }
 
-backup_save(){
+backup_save() {
   # Copy files directory
-  path="$1";
+  path="$1"
   source="$install_dir/$path"
   destination="$backup_folder/$path"
-  if [ -d "$source" ] || [ -f "$source" ]
-  then
-    echo "Saving $source to $destination";
+  if [ -d "$source" ] || [ -f "$source" ]; then
+    echo "Saving $source to $destination"
   fi
 
-  if [[ -d "$source" ]]
-  then
-    mkdir -p $(dirname "$destination");
-    destination=$(dirname "$destination");
-    cp -R "$source" "$destination";
+  if [[ -d "$source" ]]; then
+    mkdir -p $(dirname "$destination")
+    destination=$(dirname "$destination")
+    cp -R "$source" "$destination"
   fi
-  if [[ -f "$source" ]]
-  then
-    mkdir -p $(dirname "$destination");
-    cp "$source" "$destination";
+  if [[ -f "$source" ]]; then
+    mkdir -p $(dirname "$destination")
+    cp "$source" "$destination"
   fi
 }
 
-backup_load(){
-  path="$1";
-  source="$backup_folder/$path";
-  destination="$temp_install_dir/$path";
+backup_load() {
+  path="$1"
+  source="$backup_folder/$path"
+  destination="$temp_install_dir/$path"
 
-  if [ -d "$source" ] || [ -f "$source" ]
-  then
-    echo "Loading $source to $destination";
+  if [ -d "$source" ] || [ -f "$source" ]; then
+    echo "Loading $source to $destination"
   fi
 
-  if [[ -d "$source" ]]
-  then
-    mkdir -p $(dirname "$destination");
-    destination=$(dirname "$destination");
-    cp -R "$source" "$destination";
+  if [[ -d "$source" ]]; then
+    mkdir -p $(dirname "$destination")
+    destination=$(dirname "$destination")
+    cp -R "$source" "$destination"
   fi
 
-  if [[ -f "$source" ]]
-  then
-    mkdir -p $(dirname "$destination");
-    cp "$source" "$destination";
+  if [[ -f "$source" ]]; then
+    mkdir -p $(dirname "$destination")
+    cp "$source" "$destination"
   fi
 
 }
 
-save_local_files(){
-  for files in $backup
-  do
+save_local_files() {
+  for files in $backup; do
     backup_save "$files"
   done
-  chown -R $user. "/home/$user";
+  chown -R $user. "/home/$user"
 }
 
-load_local_files(){
-  for files in $backup
-  do
+load_local_files() {
+  for files in $backup; do
     backup_load "$files"
   done
 }
 
 # nicer output for composer/yarn installs
-hilite(){
+hilite() {
   error=""
   name="$1"
   log_name="$2"
   echo "$name..."
   echo ""
-  while read line
-  do
+  while read line; do
     if [[ -z "$log_name" ]]; then
-        echo "" > /dev/null
-      else
-        log "$log_name" "$line"
+      echo "" >/dev/null
+    else
+      log "$log_name" "$line"
     fi
-    if [[ -z $(echo "$line" | grep -E "access right|not found|fatal|Problem|RuntimeException") ]]
-    then
-      echo "" > /dev/null
+    if [[ -z $(echo "$line" | grep -E "access right|not found|fatal|Fatal|Problem|RuntimeException") ]]; then
+      echo "" >/dev/null
     else
       error="1"
     fi
-    if [[ -z "$error" ]]
-    then
-      echo -e "\r\033[1A\033[0K $line";
+    if [[ -z "$error" ]]; then
+      echo -e "\r\033[1A\033[0K $line"
     else
       echo "$line"
     fi
@@ -297,31 +280,29 @@ hilite(){
   RED="\033[0;31m"
   GREEN="\033[0;32m"
   NC="\033[0m"
-  if [[ -z "$error" ]]
-    then
-      echo -e "\r\033[1A\033[0K\r\033[1A\033[0K[${GREEN}completed${NC}] $name";
-    else
-      echo -e "\r\033[1A\033[0K\r\033[1A\033[0K[${RED}error${NC}] $name";
-      exit
+  if [[ -z "$error" ]]; then
+    echo -e "\r\033[1A\033[0K\r\033[1A\033[0K[${GREEN}completed${NC}] $name"
+  else
+    echo -e "\r\033[1A\033[0K\r\033[1A\033[0K[${RED}error${NC}] $name"
+    exit
   fi
 }
 
-contao_post_install(){
-  vendor/bin/contao-console contao:migrate -n > /dev/null 2>&1;
+contao_post_install() {
+  vendor/bin/contao-console contao:migrate -n >/dev/null 2>&1
   if [[ -z "$admin_password" ]]; then
-    echo "" > /dev/null
+    echo "" >/dev/null
   else
-      vendor/bin/contao-console contao:user:password "$admin_username" -p "$admin_password" > /dev/null 2>&1;
+    vendor/bin/contao-console contao:user:password "$admin_username" -p "$admin_password" >/dev/null 2>&1
   fi
   composer run post-install-cmd --no-interaction
 }
-bedrock_post_install(){
+bedrock_post_install() {
   if [[ -z "$admin_password" ]]; then
-    echo "" > /dev/null
+    echo "" >/dev/null
   else
     curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
-    if [[ -z $(php wp-cli.phar --allow-root user list | sed "s/administrator//g" | grep "$admin_username") ]]
-    then
+    if [[ -z $(php wp-cli.phar --allow-root user list | sed "s/administrator//g" | grep "$admin_username") ]]; then
       echo "Creating user $admin_username"
       php wp-cli.phar --allow-root user create "$admin_username" support@addictic.fr --user_pass="$admin_password" --role="administrator"
     else
@@ -331,16 +312,21 @@ bedrock_post_install(){
     fi
   fi
 }
-post_install(){
+post_install() {
   if [[ "$type" == "contao" ]]; then
-    contao_post_install 2>&1 | hilite "Contao post install" "contao";
+    contao_post_install 2>&1 | hilite "Contao post install" "contao"
   fi
   if [[ "$type" == "bedrock" ]]; then
-    bedrock_post_install 2>&1 | hilite "Bedrock post install" "bedrock";
+    bedrock_post_install 2>&1 | hilite "Bedrock post install" "bedrock"
   fi
-  chown -R $user. "/home/$user";
+
+  if [[ ! -z "$post_install_cmd" ]]; then
+    eval "$post_install_cmd"
+  fi
+
+  chown -R $user. "/home/$user"
 }
-contao_last_log(){
+contao_last_log() {
   project_dir="$1"
   log_dir="$project_dir/var/logs"
 
@@ -350,7 +336,7 @@ contao_last_log(){
     if [[ -f "$error_log_file" ]]; then
       log=$(cat "$error_log_file" | grep -E "ERROR|CRITICAL" | tail -n 1)
       if [[ -z "$log" ]]; then
-        echo "" > /dev/null
+        echo "" >/dev/null
       else
         echo "CONTAO LOGS ($error_log_file)"
         echo " $log"
@@ -358,13 +344,13 @@ contao_last_log(){
     fi
   fi
 }
-custom_log(){
+custom_log() {
   if [[ "$type" == "contao" ]]; then
     contao_last_log "$install_dir"
   fi
 }
 
-apache_last_error_log(){
+apache_last_error_log() {
   log_dir="/home/$user/log/apache2"
   if [[ -d "$log_dir" ]]; then
     error_log_file=$(ls "$log_dir" | tr " " "\n" | grep "error" | head -n 1)
@@ -372,7 +358,7 @@ apache_last_error_log(){
     if [[ -f "$error_log_file" ]]; then
       log=$(cat "$error_log_file" | tail -n 1)
       if [[ -z "$log" ]]; then
-        echo "" > /dev/null
+        echo "" >/dev/null
       else
         echo "APACHE LOGS ($error_log_file)"
         echo " $log"
@@ -391,43 +377,42 @@ load_config
 lock_updat
 
 # Init Bitbucket SSH Key
-eval $(ssh-agent -t 120) > /dev/null 2>&1;
-ssh-add /root/.ssh/bitbucket_rsa > /dev/null 2>&1;
+eval $(ssh-agent -t 120) >/dev/null 2>&1
+ssh-add /root/.ssh/bitbucket_rsa >/dev/null 2>&1
 
 # Save local files
 save_local_files 2>&1 | hilite "Saving local files"
 
 # Clone project
-rm -rf "$temp_install_dir";
-git clone "git@bitbucket.org:$repository" -b "$repository_branch" "$temp_install_dir" 2>&1 | hilite "Git clone $repository" "git";
+rm -rf "$temp_install_dir"
+git clone "git@bitbucket.org:$repository" -b "$repository_branch" "$temp_install_dir" 2>&1 | hilite "Git clone $repository" "git"
 
 # Load saved local files
 load_local_files 2>&1 | hilite "Loading local files"
 
 # Composer build
-cd "$temp_install_dir";
+cd "$temp_install_dir"
 if [[ -f "composer.json" ]]; then
 
   # set composer version following contao version
-  if [[ "$type" == "contao" ]]
-  then
+  if [[ "$type" == "contao" ]]; then
     contao_version=$(cat "composer.json" | grep manager-bundle | tr '"' '\n' | tail -n 2 | head -n 1 | sed "s#\^##g")
-    if [[ "$contao_version" == "4.13" ]]
-    then
-      composer self-update --2
+    if [[ -z $(echo "$contao_version" | grep "4\.1") ]]; then
+      composer self-update --1 -q
     else
-      composer self-update --1
+      composer self-update --2 -q
     fi
   fi
 
   # install using user's php version
-  php_ver_composer install --no-interaction 2>&1 | hilite "Composer install using php$php_ver" "composer";
+  composer -V
+  php_ver_composer install --no-interaction 2>&1 | hilite "Composer install using php$php_ver" "composer"
 fi
 
 # Npm build
 if [[ -f "package.json" ]]; then
-  yarn 2>&1 | hilite "YARN install" "yarn";
-  yarn run build 2>&1 | hilite "YARN build" "yarn";
+  yarn 2>&1 | hilite "YARN install" "yarn"
+  yarn run build 2>&1 | hilite "YARN build" "yarn"
 fi
 
 # post install scripts
@@ -439,16 +424,15 @@ mv "$install_dir" "$temp_old_install_dir"
 mv "$temp_install_dir" "$install_dir"
 cd "$install_dir"
 
-response=$(curl -L --write-out '%{http_code}' --silent --output /dev/null "$domain");
-echo "$domain http status code [$response]";
+response=$(curl -L --write-out '%{http_code}' --silent --output /dev/null "$domain")
+echo "$domain http status code [$response]"
 
-end=$(date +"%s");
-spent=$(($end - $start));
-echo "Update took $spent seconds";
+end=$(date +"%s")
+spent=$(($end - $start))
+echo "Update took $spent seconds"
 unlock_updat
 
-if [[ "$response" -ne "200" ]]
-then
+if [[ "$response" -ne "200" ]]; then
   echo "Status [$response] detected while loading updated site, reverting..."
 
   custom_log
@@ -458,9 +442,9 @@ then
   mv "$temp_old_install_dir" "$install_dir"
 else
   if [[ "$no_interaction" ]]; then
-    echo "" > /dev/null
+    echo "" >/dev/null
   else
-    read -p "Do you want to remove previous version website files ? (CTRL+C to cancel)";
+    read -p "Do you want to remove previous version website files ? (CTRL+C to cancel)"
     rm -rf "$temp_old_install_dir"
   fi
 fi
