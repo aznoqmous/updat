@@ -12,6 +12,7 @@ php_ver=""
 web_dir="www"
 backup_files=""
 post_install_cmd=""
+composer_version=""
 
 tstamp=$(date +"%s")
 min_disk_usage=5000000 # ~ 5GB, used inside check_server_disk_usage
@@ -85,6 +86,22 @@ get_php_version() {
   echo "$version.$major_version"
 }
 
+get_composer_version(){
+  if [[ -z "$composer_version" ]]; then
+      # set composer version following contao version
+      if [[ "$type" == "contao" ]]; then
+        contao_version=$(cat "$temp_install_dir/composer.json" | grep manager-bundle | tr '"' '\n' | tail -n 2 | head -n 1 | sed "s#\^##g")
+        if [[ -z $(echo "$contao_version" | grep "4\.1") ]]; then
+          composer_version=1
+        fi
+      fi
+      if [[ -z "$composer_version" ]]; then
+        composer_version=2
+      fi
+    fi
+    echo "$composer_version"
+}
+
 check_server_disk_usage() {
   mkdir -p "$install_dir"
 
@@ -156,9 +173,7 @@ load_config() {
   if [[ -z "$php_ver" ]]; then
     php_ver=$(get_php_version "$user")
   fi
-
   echo "php_ver: $php_ver"
-
 
   # parse repository branch if given
   if [[ -z $(echo "$repository" | sed -e "s/^[^:]*//g") ]]; then
@@ -171,11 +186,11 @@ load_config() {
   check_variable "repository"
   check_variable "repository_branch"
 
-
   backup_folder="/home/$user/_backup"
   install_dir="/home/$user/$web_dir"
   temp_install_dir="/home/$user/$web_dir""_$tstamp"
   temp_old_install_dir="/home/$user/old_$web_dir""_$tstamp"
+
 
   echo "backup:"
   for files in $backup; do
@@ -195,7 +210,7 @@ load_config() {
 }
 
 php_ver_composer() {
-  "/usr/local/share/php$php_ver/bin/php" -d memory_limit=-1 "/usr/local/bin/composer" $@
+  "/usr/local/share/php$php_ver/bin/php" -d memory_limit=-1 "/usr/local/bin/composer" $@ -n
 }
 
 backup_save() {
@@ -295,7 +310,7 @@ contao_post_install() {
   else
     vendor/bin/contao-console contao:user:password "$admin_username" -p "$admin_password" >/dev/null 2>&1
   fi
-  composer run post-install-cmd --no-interaction
+  composer run post-install-cmd -n
 }
 bedrock_post_install() {
   if [[ -z "$admin_password" ]]; then
@@ -393,20 +408,11 @@ load_local_files 2>&1 | hilite "Loading local files"
 # Composer build
 cd "$temp_install_dir"
 if [[ -f "composer.json" ]]; then
-
-  # set composer version following contao version
-  if [[ "$type" == "contao" ]]; then
-    contao_version=$(cat "composer.json" | grep manager-bundle | tr '"' '\n' | tail -n 2 | head -n 1 | sed "s#\^##g")
-    if [[ -z $(echo "$contao_version" | grep "4\.1") ]]; then
-      composer self-update --1 -q
-    else
-      composer self-update --2 -q
-    fi
-  fi
+  composer_version=$(get_composer_version)
+  composer self-update --"$composer_version" -q -n
 
   # install using user's php version
-  composer -V
-  php_ver_composer install --no-interaction 2>&1 | hilite "Composer install using php$php_ver" "composer"
+  php_ver_composer install 2>&1 | hilite "Composer install using php$php_ver" "composer"
 fi
 
 # Npm build
