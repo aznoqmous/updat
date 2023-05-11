@@ -304,13 +304,13 @@ hilite() {
 }
 
 contao_post_install() {
-  vendor/bin/contao-console contao:migrate -n >/dev/null 2>&1
+  "/usr/local/share/php$php_ver/bin/php" vendor/bin/contao-console contao:migrate -n >/dev/null 2>&1
   if [[ -z "$admin_password" ]]; then
     echo "" >/dev/null
   else
-    vendor/bin/contao-console contao:user:password "$admin_username" -p "$admin_password" >/dev/null 2>&1
+    "/usr/local/share/php$php_ver/bin/php" vendor/bin/contao-console contao:user:password "$admin_username" -p "$admin_password" >/dev/null 2>&1
   fi
-  composer run post-install-cmd -n
+  php_ver_composer run post-install-cmd -n
 }
 bedrock_post_install() {
   if [[ -z "$admin_password" ]]; then
