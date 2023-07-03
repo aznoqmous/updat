@@ -471,19 +471,19 @@ check_for_updates(){
 update_self(){
   cd "$script_dir"
   git fetch --all
-  git pull
+  git branch backup-master
+  git reset --hard origin/master
   cd "$current_directory"
 }
 
 case $1 in
   "self-update")
-    echo "UPDATING";
     update_self;
   ;;
   *)
     check_for_updates;
     if [[ "$update_available" != "0" ]]; then
-      "Update available for updat, run `updat self-update` to update the script"
+      echo "Update available for updat, run 'updat self-update' to update the script"
       sleep 2
     fi
     updat;
