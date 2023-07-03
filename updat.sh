@@ -22,6 +22,7 @@ min_disk_usage=5000000 # ~ 5GB, used inside check_server_disk_usage
 ###############
 lock_file="$(pwd)/.updatlock"
 
+
 lock_updat() {
   if [[ -f "$lock_file" ]]; then
     echo "Update prevented by $lock_file"
@@ -382,77 +383,110 @@ apache_last_error_log() {
   fi
 }
 
-###########################
-# DEPLOYMENT SCRIPT START #
-###########################
-start=$(date +"%s")
-current_directory=$(pwd)
-load_config
+updat(){
+  ###########################
+  # DEPLOYMENT SCRIPT START #
+  ###########################
+  start=$(date +"%s")
+  current_directory=$(pwd)
+  load_config
 
-lock_updat
+  lock_updat
 
-# Init Bitbucket SSH Key
-eval $(ssh-agent -t 120) >/dev/null 2>&1
-ssh-add /root/.ssh/bitbucket_rsa >/dev/null 2>&1
+  # Init Bitbucket SSH Key
+  eval $(ssh-agent -t 120) >/dev/null 2>&1
+  ssh-add /root/.ssh/bitbucket_rsa >/dev/null 2>&1
 
-# Save local files
-save_local_files 2>&1 | hilite "Saving local files"
+  # Save local files
+  save_local_files 2>&1 | hilite "Saving local files"
 
-# Clone project
-rm -rf "$temp_install_dir"
-git clone "git@bitbucket.org:$repository" -b "$repository_branch" "$temp_install_dir" 2>&1 | hilite "Git clone $repository" "git"
+  # Clone project
+  rm -rf "$temp_install_dir"
+  git clone "git@bitbucket.org:$repository" -b "$repository_branch" "$temp_install_dir" 2>&1 | hilite "Git clone $repository" "git"
 
-# Load saved local files
-load_local_files 2>&1 | hilite "Loading local files"
+  # Load saved local files
+  load_local_files 2>&1 | hilite "Loading local files"
 
-# Composer build
-cd "$temp_install_dir"
-if [[ -f "composer.json" ]]; then
-  composer_version=$(get_composer_version)
-  composer self-update --"$composer_version" -q -n
+  # Composer build
+  cd "$temp_install_dir"
+  if [[ -f "composer.json" ]]; then
+    composer_version=$(get_composer_version)
+    composer self-update --"$composer_version" -q -n
 
-  # install using user's php version
-  php_ver_composer install 2>&1 | hilite "Composer install using php$php_ver" "composer"
-fi
-
-# Npm build
-if [[ -f "package.json" ]]; then
-  yarn 2>&1 | hilite "YARN install" "yarn"
-  yarn run build 2>&1 | hilite "YARN build" "yarn"
-fi
-
-# post install scripts
-post_install
-
-# test installation
-rm -rf "$temp_old_install_dir"
-mv "$install_dir" "$temp_old_install_dir"
-mv "$temp_install_dir" "$install_dir"
-cd "$install_dir"
-
-response=$(curl -L --write-out '%{http_code}' --silent --output /dev/null "$domain")
-echo "$domain http status code [$response]"
-
-end=$(date +"%s")
-spent=$(($end - $start))
-echo "Update took $spent seconds"
-unlock_updat
-
-if [[ "$response" -ne "200" ]]; then
-  echo "Status [$response] detected while loading updated site, reverting..."
-
-  custom_log
-  apache_last_error_log
-
-  mv "$install_dir" "$temp_install_dir"
-  mv "$temp_old_install_dir" "$install_dir"
-else
-  if [[ "$no_interaction" ]]; then
-    echo "" >/dev/null
-  else
-    read -p "Do you want to remove previous version website files ? (CTRL+C to cancel)"
-    rm -rf "$temp_old_install_dir"
+    # install using user's php version
+    php_ver_composer install 2>&1 | hilite "Composer install using php$php_ver" "composer"
   fi
-fi
 
-echo "Update completed!"
+  # Npm build
+  if [[ -f "package.json" ]]; then
+    yarn 2>&1 | hilite "YARN install" "yarn"
+    yarn run build 2>&1 | hilite "YARN build" "yarn"
+  fi
+
+  # post install scripts
+  post_install
+
+  # test installation
+  rm -rf "$temp_old_install_dir"
+  mv "$install_dir" "$temp_old_install_dir"
+  mv "$temp_install_dir" "$install_dir"
+  cd "$install_dir"
+
+  response=$(curl -L --write-out '%{http_code}' --silent --output /dev/null "$domain")
+  echo "$domain http status code [$response]"
+
+  end=$(date +"%s")
+  spent=$(($end - $start))
+  echo "Update took $spent seconds"
+  unlock_updat
+
+  if [[ "$response" -ne "200" ]]; then
+    echo "Status [$response] detected while loading updated site, reverting..."
+
+    custom_log
+    apache_last_error_log
+
+    mv "$install_dir" "$temp_install_dir"
+    mv "$temp_old_install_dir" "$install_dir"
+  else
+    if [[ "$no_interaction" ]]; then
+      echo "" >/dev/null
+    else
+      read -p "Do you want to remove previous version website files ? (CTRL+C to cancel)"
+      rm -rf "$temp_old_install_dir"
+    fi
+  fi
+
+  echo "Update completed!"
+}
+
+script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+update_available=""
+check_for_updates(){
+  cd "$script_dir"
+  git remote update > /dev/null 2>&1
+  update_available=$(git rev-list HEAD...origin/master --count)
+  cd "$current_directory"
+}
+update_self(){
+  cd "$script_dir"
+  git fetch --all
+  git pull
+  cd "$current_directory"
+}
+
+case $1 in
+  "self-update")
+    echo "UPDATING";
+    update_self;
+  ;;
+  *)
+    check_for_updates;
+    if [[ "$update_available" != "0" ]]; then
+      "Update available for updat, run `updat self-update` to update the script"
+      sleep 2
+    fi
+    updat;
+  ;;
+esac
+exit;
