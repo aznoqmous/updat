@@ -475,7 +475,21 @@ update_self(){
   git reset --hard origin/master
   cd "$current_directory"
 }
+show_head(){
+  cd "$script_dir"
+  hash=$(git log --pretty=format:'%h' -n 1)
+  cd "$current_directory"
+  echo '
+                     __        __ 
+  __  __ ____   ____/ /____ _ / /_
+ / / / // __ \ / __  // __ `// __/
+/ /_/ // /_/ // /_/ // /_/ // /_  
+\__,_// .___/ \__,_/ \__,_/ \__/  
+     /_/ version' $hash;
+     echo ""
+}
 
+show_head
 case $1 in
   "self-update")
     update_self;
