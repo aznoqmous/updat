@@ -482,7 +482,7 @@ case $1 in
   *)
     check_for_updates;
     if [[ "$update_available" != "0" ]]; then
-      "Update available for updat, run `updat self-update` to update the script"
+      echo "Update available for updat, run 'updat self-update' to update the script"
       sleep 2
     fi
     updat;
