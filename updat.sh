@@ -477,7 +477,6 @@ update_self(){
 
 case $1 in
   "self-update")
-    echo "UPDATING";
     update_self;
   ;;
   *)
