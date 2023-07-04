@@ -188,7 +188,9 @@ load_config() {
   temp_install_dir="/home/$user/$web_dir""_$tstamp"
   temp_old_install_dir="/home/$user/old_$web_dir""_$tstamp"
   disk_usage=$(check_server_disk_usage)
-  echo -e "Updating \e[32m$domain\e[0m, a \e[32mphp$php_ver-$type\e[0m project \e[32m$user@$install_dir\e[0m"
+
+  read -ep $'Updating \e[32m'$domain$'\e[0m, a \e[32mphp'$php_ver-$type$'\e[0m project \e[32m'$user'@'$install_dir$'\e[0m (Press <Enter> to continue)'
+
 
   #if [[ "$no_interaction" ]]; then
   #  echo "" >/dev/null
@@ -369,10 +371,6 @@ apache_last_error_log() {
     fi
   fi
 }
-init_ssh_agent(){
-  eval $(ssh-agent -t 120) >/dev/null 2>&1
-  ssh-add /root/.ssh/bitbucket_rsa >/dev/null 2>&1
-}
 
 updat(){
   ###########################
@@ -383,11 +381,11 @@ updat(){
 
   lock_updat
 
-  load_config 2>&1 | hilite "Loading configuration"
-
+  load_config 2>&1
 
   # Init Bitbucket SSH Key
-  init_ssh_agent 2>&1 | hilite "Init SSH agent"
+  eval $(ssh-agent -t 120) >/dev/null 2>&1
+  ssh-add /root/.ssh/bitbucket_rsa >/dev/null 2>&1 | hilite "Init SSH Agent"
 
   # Save local files
   save_local_files 2>&1 | hilite "Saving local files"
@@ -467,7 +465,6 @@ check_for_updates(){
 update_self(){
   cd "$script_dir"
   git fetch --all
-  git branch backup-master
   git reset --hard origin/master
   cd "$current_directory"
 }
