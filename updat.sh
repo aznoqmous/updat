@@ -143,7 +143,6 @@ parse_yml() {
     if [[ -z $(echo "$lastValue") ]]; then
       continue
     else
-      lastValue=$(echo "$lastValue" | sed -E "s/#.*$//g" | sed -E "s/ //g")
       export "$current_var"="$lastValue"
     fi
   done <"$yml_file"
@@ -189,6 +188,10 @@ load_config() {
   temp_old_install_dir="/home/$user/old_$web_dir""_$tstamp"
   disk_usage=$(check_server_disk_usage)
 
+#  echo "backup:"
+#  for files in $backup; do
+#    echo " - $files"
+#  done
   read -ep $'Updating \e[32m'$domain$'\e[0m, a \e[32mphp'$php_ver-$type$'\e[0m project \e[32m'$user'@'$install_dir$'\e[0m (Press <Enter> to continue)'
 
 
