@@ -70,11 +70,10 @@ check_variable() {
   variable="$1"
   if [[ -z "$variable" ]]; then
     exit
-  else
-    echo $variable: ${!variable}
+    #echo -e "\e[32m$variable:\e[0m "${!variable}
   fi
   if [[ -z ${!variable} ]]; then
-    echo "$variable is not defined !"
+    echo "Updat fatal : $variable is not defined !"
     exit
   fi
 }
@@ -144,6 +143,7 @@ parse_yml() {
     if [[ -z $(echo "$lastValue") ]]; then
       continue
     else
+      lastValue=$(echo "$lastValue" | sed -E "s/#.*$//g" | sed -E "s/ //g")
       export "$current_var"="$lastValue"
     fi
   done <"$yml_file"
@@ -155,15 +155,11 @@ load_config() {
   if [[ -f "$config_file" ]]; then
     echo "" >/dev/null
   else
-    echo "$(pwd)/updat.yml doesnt exists"
+    echo "No updat.yml file found"
     exit
   fi
 
   parse_yml "$config_file"
-
-  echo "#################"
-  echo "# UPDATE CONFIG #"
-  echo "#################"
 
   # check required variables
   check_variable "user"
@@ -174,7 +170,7 @@ load_config() {
   if [[ -z "$php_ver" ]]; then
     php_ver=$(get_php_version "$user")
   fi
-  echo "php_ver: $php_ver"
+  #echo -e "\e[32mphp_ver:\e[0m $php_ver"
 
   # parse repository branch if given
   if [[ -z $(echo "$repository" | sed -e "s/^[^:]*//g") ]]; then
@@ -191,23 +187,14 @@ load_config() {
   install_dir="/home/$user/$web_dir"
   temp_install_dir="/home/$user/$web_dir""_$tstamp"
   temp_old_install_dir="/home/$user/old_$web_dir""_$tstamp"
-
-
-  echo "backup:"
-  for files in $backup; do
-    echo " - $files"
-  done
-
-  echo ""
-
   disk_usage=$(check_server_disk_usage)
-  echo "$disk_usage"
+  echo -e "Updating \e[32m$domain\e[0m, a \e[32mphp$php_ver-$type\e[0m project \e[32m$user@$install_dir\e[0m"
 
-  if [[ "$no_interaction" ]]; then
-    echo "" >/dev/null
-  else
-    read -p "Is it ok ?"
-  fi
+  #if [[ "$no_interaction" ]]; then
+  #  echo "" >/dev/null
+  #else
+  #  read -p "Is it ok ?"
+  #fi
 }
 
 php_ver_composer() {
@@ -274,7 +261,7 @@ hilite() {
   error=""
   name="$1"
   log_name="$2"
-  echo "$name..."
+  echo "[running] $name"
   echo ""
   while read line; do
     if [[ -z "$log_name" ]]; then
@@ -297,9 +284,9 @@ hilite() {
   GREEN="\033[0;32m"
   NC="\033[0m"
   if [[ -z "$error" ]]; then
-    echo -e "\r\033[1A\033[0K\r\033[1A\033[0K[${GREEN}completed${NC}] $name"
+    echo -e "\r\033[1A\033[0K\r\033[1A\033[0K[${GREEN}completed${NC}] ${GREEN}$name${NC}"
   else
-    echo -e "\r\033[1A\033[0K\r\033[1A\033[0K[${RED}error${NC}] $name"
+    echo -e "\r\033[1A\033[0K\r\033[1A\033[0K[${RED}error${NC}] ${RED}$name${NC}"
     exit
   fi
 }
@@ -382,6 +369,10 @@ apache_last_error_log() {
     fi
   fi
 }
+init_ssh_agent(){
+  eval $(ssh-agent -t 120) >/dev/null 2>&1
+  ssh-add /root/.ssh/bitbucket_rsa >/dev/null 2>&1
+}
 
 updat(){
   ###########################
@@ -389,13 +380,14 @@ updat(){
   ###########################
   start=$(date +"%s")
   current_directory=$(pwd)
-  load_config
 
   lock_updat
 
+  load_config 2>&1 | hilite "Loading configuration"
+
+
   # Init Bitbucket SSH Key
-  eval $(ssh-agent -t 120) >/dev/null 2>&1
-  ssh-add /root/.ssh/bitbucket_rsa >/dev/null 2>&1
+  init_ssh_agent 2>&1 | hilite "Init SSH agent"
 
   # Save local files
   save_local_files 2>&1 | hilite "Saving local files"
@@ -467,6 +459,10 @@ check_for_updates(){
   git remote update > /dev/null 2>&1
   update_available=$(git rev-list HEAD...origin/master --count)
   cd "$current_directory"
+  if [[ "$update_available" != "0" ]]; then
+    echo "Update available for updat, run 'updat self-update' to update the script"
+    sleep 2
+  fi
 }
 update_self(){
   cd "$script_dir"
@@ -479,27 +475,29 @@ show_head(){
   cd "$script_dir"
   hash=$(git log --pretty=format:'%h' -n 1)
   cd "$current_directory"
-  echo '
-                     __        __ 
+  echo -e '\e[1;32m                     __        __ 
   __  __ ____   ____/ /____ _ / /_
  / / / // __ \ / __  // __ `// __/
 / /_/ // /_/ // /_/ // /_/ // /_  
 \__,_// .___/ \__,_/ \__,_/ \__/  
-     /_/ version' $hash;
-     echo ""
+     /_/\e[0m'$hash'
+';
 }
-
+init(){
+  cp "$script_dir/updat.yml" "updat.yml"
+  echo -e "Created default \e[32mupdat.yml\e[0m at $current_directory"
+  cat "updat.yml"
+}
 show_head
 case $1 in
   "self-update")
     update_self;
   ;;
+  "init")
+    init;
+  ;;
   *)
     check_for_updates;
-    if [[ "$update_available" != "0" ]]; then
-      echo "Update available for updat, run 'updat self-update' to update the script"
-      sleep 2
-    fi
     updat;
   ;;
 esac
