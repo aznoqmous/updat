@@ -379,9 +379,9 @@ updat(){
   start=$(date +"%s")
   current_directory=$(pwd)
 
-  lock_updat
-
   load_config 2>&1
+
+  lock_updat
 
   # Init Bitbucket SSH Key
   eval $(ssh-agent -t 120) >/dev/null 2>&1
