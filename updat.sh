@@ -398,7 +398,7 @@ deployment_test(){
     if [[ "$no_interaction" ]]; then
       echo "" >/dev/null
     else
-      read -p "Do you want to remove previous version website files ? (CTRL+C to cancel)"
+      read -p "Do you want to remove previous version website files ? (Press <Enter> to continue, <CTRL+C> to cancel)"
       rm -rf "$temp_old_install_dir"
     fi
   fi
