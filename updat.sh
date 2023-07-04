@@ -109,14 +109,38 @@ check_server_disk_usage() {
   project_size_h=$(du -hs "$install_dir" | tr "\t" "\n" | head -n 1)
   space_left=$(df "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 4 | head -n 1)
   space_left_h=$(df -h "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 4 | head -n 1)
+  space_used=$(df "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 7 | head -n 1)
+  space_used_h=$(df -h "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 7 | head -n 1)
+  space_total=$(df "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 8 | head -n 1)
 
-  echo "Space left on /home/$user : $space_left_h "
-  echo "Project estimated size : $project_size_h"
+  spacestring="Disk space : \e[31m$space_used_h used\e[0m | \e[33m~$project_size_h project size\e[0m | \e[32m$space_left_h left\e[0m"
+  space_string_escaped="Disk space : $space_used_h used | ~$project_size_h project size | $space_left_h left"
+  length=${#space_string_escaped}
+  length_used=$(awk "BEGIN {print $space_used / $space_total * $length}" | sed -E "s/\..*$//g")
+  length_project=$(awk "BEGIN {print $project_size / $space_total * $length}" | sed -E "s/\..*$//g")
+  length_project=$(($length_used + $length_project + 1))
+
+
+  for i in $(seq 1 $length);
+  do
+    if [[ "$i" -lt "$length_used" ]]; then
+            echo -en "\e[31m▬\e[0m"
+          else
+            if [[ "$i" -lt "$length_project" ]]; then
+                 echo -en "\e[33m▬\e[0m"
+               else
+                 echo -en "\e[32m▬\e[0m"
+             fi
+        fi
+  done
+  echo ""
+
+  echo -e "$spacestring"
 
   if [[ $(($space_left - $project_size)) -gt $min_disk_usage ]]; then
     echo "" >/dev/null
   else
-    echo "Not enough disk space to perform update !"
+    echo "Fatal error : not enough disk space to perform update !"
     exit
   fi
 }
@@ -192,6 +216,7 @@ load_config() {
 #  for files in $backup; do
 #    echo " - $files"
 #  done
+  echo "$disk_usage"
   read -ep $'Updating \e[32m'$domain$'\e[0m, a \e[32mphp'$php_ver-$type$'\e[0m project \e[32m'$user'@'$install_dir$'\e[0m (Press <Enter> to continue)'
 
 
@@ -266,32 +291,37 @@ hilite() {
   error=""
   name="$1"
   log_name="$2"
+  RETURN="\r\033[1A\033[0K"
+  RED="\033[0;31m"
+  GREEN="\033[0;32m"
+  NC="\033[0m"
   echo "[running] $name"
   echo ""
+  error_lines=""
+  loader="/-\|"
   while read line; do
     if [[ -z "$log_name" ]]; then
-      echo "" >/dev/null
+      echo "" > /dev/null
     else
       log "$log_name" "$line"
     fi
     if [[ -z $(echo "$line" | grep -E "access right|not found|fatal|Fatal|Problem|RuntimeException") ]]; then
-      echo "" >/dev/null
+      echo "" > /dev/null
     else
       error="1"
     fi
     if [[ -z "$error" ]]; then
-      echo -e "\r\033[1A\033[0K $line"
+      echo -e "${RETURN}\b${loader:i++%${#loader}:1} $line"
     else
-      echo "$line"
+      error_lines="$error_lines$line"
     fi
   done
-  RED="\033[0;31m"
-  GREEN="\033[0;32m"
-  NC="\033[0m"
+
   if [[ -z "$error" ]]; then
-    echo -e "\r\033[1A\033[0K\r\033[1A\033[0K[${GREEN}completed${NC}] ${GREEN}$name${NC}"
+    echo -e "${RETURN}${RETURN}[${GREEN}completed${NC}] ${GREEN}$name${NC}"
   else
-    echo -e "\r\033[1A\033[0K\r\033[1A\033[0K[${RED}error${NC}] ${RED}$name${NC}"
+    echo -e "${RETURN}${RETURN}[${RED}error${NC}] ${RED}$name${NC}"
+    echo "$error_lines"
     exit
   fi
 }
