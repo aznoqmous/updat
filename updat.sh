@@ -73,7 +73,7 @@ check_variable() {
     #echo -e "\e[32m$variable:\e[0m "${!variable}
   fi
   if [[ -z ${!variable} ]]; then
-    echo "Updat fatal : $variable is not defined !"
+    echo "Updat fatal error : $variable is not defined !"
     exit
   fi
 }
@@ -374,7 +374,35 @@ apache_last_error_log() {
     fi
   fi
 }
+deployment_test(){
+  rm -rf "$temp_old_install_dir"
+  mv "$install_dir" "$temp_old_install_dir"
+  mv "$temp_install_dir" "$install_dir"
+  cd "$install_dir"
 
+  response=$(curl -L --write-out '%{http_code}' --silent --output /dev/null "$domain")
+  echo "$domain http status code [$response]"
+
+  
+  unlock_updat
+
+  if [[ "$response" -ne "200" ]]; then
+    echo "Fatal error : [$response] response while loading updated site, reverting..."
+
+    custom_log
+    apache_last_error_log
+
+    mv "$install_dir" "$temp_install_dir"
+    mv "$temp_old_install_dir" "$install_dir"
+  else
+    if [[ "$no_interaction" ]]; then
+      echo "" >/dev/null
+    else
+      read -p "Do you want to remove previous version website files ? (CTRL+C to cancel)"
+      rm -rf "$temp_old_install_dir"
+    fi
+  fi
+}
 updat(){
   ###########################
   # DEPLOYMENT SCRIPT START #
@@ -420,37 +448,11 @@ updat(){
   post_install
 
   # test installation
-  rm -rf "$temp_old_install_dir"
-  mv "$install_dir" "$temp_old_install_dir"
-  mv "$temp_install_dir" "$install_dir"
-  cd "$install_dir"
-
-  response=$(curl -L --write-out '%{http_code}' --silent --output /dev/null "$domain")
-  echo "$domain http status code [$response]"
+  deployment_test | hilite "Deployment"
 
   end=$(date +"%s")
   spent=$(($end - $start))
-  echo "Update took $spent seconds"
-  unlock_updat
-
-  if [[ "$response" -ne "200" ]]; then
-    echo "Status [$response] detected while loading updated site, reverting..."
-
-    custom_log
-    apache_last_error_log
-
-    mv "$install_dir" "$temp_install_dir"
-    mv "$temp_old_install_dir" "$install_dir"
-  else
-    if [[ "$no_interaction" ]]; then
-      echo "" >/dev/null
-    else
-      read -p "Do you want to remove previous version website files ? (CTRL+C to cancel)"
-      rm -rf "$temp_old_install_dir"
-    fi
-  fi
-
-  echo "Update completed!"
+  echo "Update completed in $spent seconds"
 }
 
 script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
@@ -480,7 +482,7 @@ show_head(){
  / / / // __ \ / __  // __ `// __/
 / /_/ // /_/ // /_/ // /_/ // /_  
 \__,_// .___/ \__,_/ \__,_/ \__/  
-     /_/\e[0m'$hash'
+     /_/\e[0m '$hash'
 ';
 }
 init(){
@@ -491,7 +493,7 @@ init(){
 show_head
 case $1 in
   "self-update")
-    update_self;
+    update_self | hilite "Performing self-update";
   ;;
   "init")
     init;
