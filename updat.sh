@@ -515,8 +515,8 @@ check_for_updates(){
 }
 update_self(){
   cd "$script_dir"
-  git fetch --all
-  git reset --hard origin/master
+  git fetch --all 2>&1
+  git reset --hard origin/master 2>&1
   cd "$current_directory"
 }
 show_head(){
