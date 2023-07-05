@@ -7,9 +7,11 @@
      /_/
 ```
 
+
 ## Get started
 1. `cd` and run `updat init` to create a default `updat.yml` file inside your wrking directory
 2. Run `updat` script
+
 
 ## Configuration
 By default installation directory is `/home/username/www` and can be changed with the `web_dir` configuration property.
@@ -41,6 +43,8 @@ backup:
   - .env.local
 # optionnal, those folders/files will be saved before update and re-installed after update completion
 ```
+
+
 ## Commands
 `updat self-update` update the `updat` package  
 `updat init` create a default `updat.yml` in current directory
