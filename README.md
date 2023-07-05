@@ -6,6 +6,7 @@
 \__,_// .___/ \__,_/ \__,_/ \__/  
      /_/
 ```
+
 ## Get started
 1. `cd` and run `updat init` to create a default `updat.yml` file inside your wrking directory
 2. Run `updat` script
