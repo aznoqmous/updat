@@ -310,7 +310,7 @@ hilite() {
   error=""
   name="$1"
   log_name="$2"
-  echo "[running] $name"
+  echo -e "[${YELLOW}running${NC}] $name"
   echo ""
   error_lines=""
   loader="/-\|"
@@ -425,10 +425,10 @@ deployment_test(){
   mv "$temp_install_dir" "$install_dir"
   cd "$install_dir"
 
+  echo "Await response from $domain..."
   response=$(curl -L --write-out '%{http_code}' --silent --output /dev/null "$domain")
   echo "$domain http status code [$response]"
 
-  
   unlock_updat
 
   if [[ "$response" -ne "200" ]]; then
@@ -448,7 +448,7 @@ deployment_test(){
     fi
   fi
 }
-updat(){
+main(){
   ###########################
   # DEPLOYMENT SCRIPT START #
   ###########################
@@ -546,7 +546,6 @@ case $1 in
   ;;
   *)
     check_for_updates;
-    updat;
+    main;
   ;;
 esac
-exit;
