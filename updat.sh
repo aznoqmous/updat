@@ -20,6 +20,11 @@ min_disk_usage=5000000 # ~ 5GB, used inside check_server_disk_usage
 ###############
 # DEFINITIONS #
 ###############
+RETURN="\r\033[1A\033[0K"
+RED="\033[0;31m"
+GREEN="\033[0;32m"
+YELLOW="\033[0;33m"
+NC="\033[0m"
 lock_file="$(pwd)/.updatlock"
 
 
@@ -210,12 +215,26 @@ load_config() {
   install_dir="/home/$user/$web_dir"
   temp_install_dir="/home/$user/$web_dir""_$tstamp"
   temp_old_install_dir="/home/$user/old_$web_dir""_$tstamp"
-  disk_usage=$(check_server_disk_usage)
+
+
+  # Show git status
+  cd "$install_dir"
+  git fetch 2>&1 > /dev/null | hilite "Fetching $repository:$repository_branch"
+  git_status=$(git status -sb)
+  if [[ $(echo "$git_status" | grep "\[") ]]; then
+      echo -e "${YELLOW}Projet non à jour avec${NC} $repository:$repository_branch"
+      git status -sb
+    else
+      echo -e "${GREEN}Projet à jour sur ${NC} $repository:$repository_branch"
+  fi
+  cd "$current_directory"
 
 #  echo "backup:"
 #  for files in $backup; do
 #    echo " - $files"
 #  done
+
+  disk_usage=$(check_server_disk_usage)
   echo "$disk_usage"
   read -ep $'Updating \e[32m'$domain$'\e[0m, a \e[32mphp'$php_ver-$type$'\e[0m project \e[32m'$user'@'$install_dir$'\e[0m (Press <Enter> to continue)'
 
@@ -291,10 +310,6 @@ hilite() {
   error=""
   name="$1"
   log_name="$2"
-  RETURN="\r\033[1A\033[0K"
-  RED="\033[0;31m"
-  GREEN="\033[0;32m"
-  NC="\033[0m"
   echo "[running] $name"
   echo ""
   error_lines=""
@@ -311,7 +326,7 @@ hilite() {
       error="1"
     fi
     if [[ -z "$error" ]]; then
-      echo -e "${RETURN}\b${loader:i++%${#loader}:1} $line"
+      echo -e "${RETURN}\b\[${loader:i++%${#loader}:1}] $line"
     else
       error_lines="$error_lines$line"
     fi
@@ -440,13 +455,14 @@ updat(){
   start=$(date +"%s")
   current_directory=$(pwd)
 
+  # Init Bitbucket SSH Key
+  eval $(ssh-agent -t 120) >/dev/null 2>&1
+  ssh-add /root/.ssh/bitbucket_rsa >/dev/null 2>&1 | hilite "Initializing SSH Agent"
+
+  # Load config duh
   load_config 2>&1
 
   lock_updat
-
-  # Init Bitbucket SSH Key
-  eval $(ssh-agent -t 120) >/dev/null 2>&1
-  ssh-add /root/.ssh/bitbucket_rsa >/dev/null 2>&1 | hilite "Init SSH Agent"
 
   # Save local files
   save_local_files 2>&1 | hilite "Saving local files"
