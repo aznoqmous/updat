@@ -26,7 +26,9 @@ GREEN="\033[0;32m"
 YELLOW="\033[0;33m"
 NC="\033[0m"
 lock_file="$(pwd)/.updatlock"
-
+RUNNING="⏳ "
+COMPLETED="✅"
+ERROR="❌"
 
 lock_updat() {
   if [[ -f "$lock_file" ]]; then
@@ -115,9 +117,8 @@ check_server_disk_usage() {
   space_left=$(df "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 4 | head -n 1)
   space_left_h=$(df -h "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 4 | head -n 1)
   space_used=$(df "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 7 | head -n 1)
-  space_used_h=$(df -h "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 7 | head -n 1)
+  space_used_h=$(df -h "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 6 | head -n 1)
   space_total=$(df "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 8 | head -n 1)
-
   spacestring="Disk space : \e[31m$space_used_h used\e[0m | \e[33m~$project_size_h project size\e[0m | \e[32m$space_left_h left\e[0m"
   space_string_escaped="Disk space : $space_used_h used | ~$project_size_h project size | $space_left_h left"
   length=${#space_string_escaped}
@@ -310,7 +311,7 @@ hilite() {
   error=""
   name="$1"
   log_name="$2"
-  echo -e "[${YELLOW}running${NC}] $name"
+  echo -e "$RUNNING $name"
   echo ""
   error_lines=""
   loader="/-\|"
@@ -326,16 +327,16 @@ hilite() {
       error="1"
     fi
     if [[ -z "$error" ]]; then
-      echo -e "${RETURN}\b\[${loader:i++%${#loader}:1}] $line"
+      echo -e "${RETURN}> $line"
     else
       error_lines="$error_lines$line"
     fi
   done
 
   if [[ -z "$error" ]]; then
-    echo -e "${RETURN}${RETURN}[${GREEN}completed${NC}] ${GREEN}$name${NC}"
+    echo -e "${RETURN}${RETURN}$COMPLETED ${GREEN} $name${NC}"
   else
-    echo -e "${RETURN}${RETURN}[${RED}error${NC}] ${RED}$name${NC}"
+    echo -e "${RETURN}${RETURN}$ERROR ${RED} $name${NC}"
     echo "$error_lines"
     exit
   fi
