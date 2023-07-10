@@ -114,13 +114,19 @@ check_server_disk_usage() {
 
   project_size=$(du -s "$install_dir" | tr "\t" "\n" | head -n 1)
   project_size_h=$(du -hs "$install_dir" | tr "\t" "\n" | head -n 1)
-  space_left=$(df "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 4 | head -n 1)
-  space_left_h=$(df -h "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 4 | head -n 1)
-  space_used=$(df "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 7 | head -n 1)
-  space_used_h=$(df -h "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 6 | head -n 1)
-  space_total=$(df "/home/$user" | tail -n 1 | tr " " "\n" | tail -n 8 | head -n 1)
-  spacestring="Disk space : \e[31m$space_used_h used\e[0m | \e[33m~$project_size_h project size\e[0m | \e[32m$space_left_h left\e[0m"
-  space_string_escaped="Disk space : $space_used_h used | ~$project_size_h project size | $space_left_h left"
+
+  df_infos=$(df "/home/$user" | tail -n1 | tr " " "\n" | grep -Ev "^$")
+  df_h_infos=$(df -h "/home/$user" | tail -n1 | tr " " "\n" | grep -Ev "^$")
+
+  space_left=$(echo "$df_infos" | head -n 4 | tail -n 1)
+  space_left_h=$(echo "$df_h_infos" | head -n 4 | tail -n 1)
+  space_used=$(echo "$df_infos" | head -n 3 | tail -n 1)
+  space_used_h=$(echo "$df_h_infos" | head -n 3 | tail -n 1)
+  space_total=$(echo "$df_infos" | head -n 2 | tail -n 1)
+
+  spacestring="[ Disk space : \e[31m$space_used_h used\e[0m | \e[33m~$project_size_h project size\e[0m | \e[32m$space_left_h left\e[0m ]"
+  space_string_escaped="[ Disk space : $space_used_h used | ~$project_size_h project size | $space_left_h left ]"
+
   length=${#space_string_escaped}
   length_used=$(awk "BEGIN {print $space_used / $space_total * $length}" | sed -E "s/\..*$//g")
   length_project=$(awk "BEGIN {print $project_size / $space_total * $length}" | sed -E "s/\..*$//g")
