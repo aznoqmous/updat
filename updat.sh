@@ -334,7 +334,7 @@ hilite() {
       error="1"
     fi
     if [[ -z "$error" ]]; then
-      echo -e "${RETURN}\b${CYAN}${loader:i++%${#loader}:1}${NC} $line"
+      echo -e "${RETURN}\b ${CYAN}${loader:i++%${#loader}:1}${NC} $line"
     else
       error_lines="$error_lines$line"
     fi
@@ -544,6 +544,7 @@ init(){
   echo -e "Created default \e[32mupdat.yml\e[0m at $current_directory"
   cat "updat.yml"
 }
+
 show_head
 case $1 in
   "self-update")
