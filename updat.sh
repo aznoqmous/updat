@@ -24,6 +24,7 @@ RETURN="\r\033[1A\033[0K"
 RED="\033[0;31m"
 GREEN="\033[0;32m"
 YELLOW="\033[0;33m"
+CYAN="\033[0;36m"
 NC="\033[0m"
 lock_file="$(pwd)/.updatlock"
 RUNNING="⏳ "
@@ -320,7 +321,7 @@ hilite() {
   echo -e "$RUNNING $name"
   echo ""
   error_lines=""
-  loader="/-\|"
+  loader="⣷⣯⣟⡿⢿⣻⣽⣾"
   while read line; do
     if [[ -z "$log_name" ]]; then
       echo "" > /dev/null
@@ -333,7 +334,7 @@ hilite() {
       error="1"
     fi
     if [[ -z "$error" ]]; then
-      echo -e "${RETURN}> $line"
+      echo -e "${RETURN}\b${CYAN}${loader:i++%${#loader}:1}${NC} $line"
     else
       error_lines="$error_lines$line"
     fi
