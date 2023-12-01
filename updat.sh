@@ -313,6 +313,8 @@ load_local_files() {
   done
 }
 
+trap "exit 1" TERM
+export TOP_PID=$$
 # nicer output for composer/yarn installs
 hilite() {
   error=""
@@ -337,6 +339,7 @@ hilite() {
       echo -e "${RETURN}\b ${CYAN}${loader:i++%${#loader}:1}${NC} $line"
     else
       error_lines="$error_lines$line"
+      kill -s TERM "$TOP_PID"
     fi
   done
 
@@ -345,7 +348,7 @@ hilite() {
   else
     echo -e "${RETURN}${RETURN}$ERROR ${RED} $name${NC}"
     echo "$error_lines"
-    exit
+
   fi
 }
 
@@ -501,11 +504,12 @@ main(){
   # post install scripts
   post_install
 
+  end=$(date +"%s")
+  spent=$(($end - $start))
+
   # test installation
   deployment_test | hilite "Deployment"
 
-  end=$(date +"%s")
-  spent=$(($end - $start))
   echo "Update completed in $spent seconds"
 }
 
