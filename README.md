@@ -12,6 +12,8 @@
 1. `cd` and run `updat init` to create a default `updat.yml` file inside your wrking directory
 2. Run `updat` script
 
+## Update script
+To get the latest version of the script,run `updat self-update`
 
 ## Configuration
 By default installation directory is `/home/username/www` and can be changed with the `web_dir` configuration property.
