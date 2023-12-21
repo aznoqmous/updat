@@ -51,13 +51,16 @@ check_args() {
   for arg in $@; do
     if [[ $arg == "-h" ]]; then
       echo "Usage: updat [-h] [-f] [-ni] [--no-yarn] [--no-composer] [--no-install]"
+      echo "  updat               : run the updat script"
+      echo "  updat init          : create a sample updat.yml file inside current directory"
+      echo "  updat self-update   : update the updat script"
       echo "Options:"
-      echo "  -h              : show this message"
-      echo "  -f              : force launch, remove .updatlock file if existing"
-      echo "  -ni             : no interactions, don't prompt disk usage and do not ask to validate (old directory must be erased manually)"
-      echo "  --no-yarn       : copy existing node_modules directory instead of running yarn install command"
-      echo "  --no-composer   : copy existing vendor directory instead of running composer install command"
-      echo "  --no-install    : alias for --no-yarn + --no-composer"
+      echo "  -h                  : show this message"
+      echo "  -f                  : force launch, remove .updatlock file if existing"
+      echo "  -ni                 : no interactions, don't prompt disk usage and do not ask to validate (old directory must be erased manually)"
+      echo "  --no-yarn           : copy existing node_modules directory instead of running yarn install command"
+      echo "  --no-composer       : copy existing vendor directory instead of running composer install command"
+      echo "  --no-install        : alias for --no-yarn + --no-composer"
       kill_self
     fi
     if [[ $arg == "-f" ]]; then

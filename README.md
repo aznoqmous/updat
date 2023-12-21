@@ -48,5 +48,17 @@ backup:
 
 
 ## Commands
-`updat self-update` update the `updat` package  
-`updat init` create a default `updat.yml` in current directory
+```yml
+  updat               : run the updat script
+  updat init          : create a sample updat.yml file inside current directory
+  updat self-update   : update the updat script
+  
+Options:
+  help           : -h            : show this message
+  force          : -f            : force launch, remove .updatlock file if existing
+  no-interaction : -ni           : no interactions, don't prompt disk usage and do not ask to validate (old directory must be erased manually)
+  no-yarn        : --no-yarn     : copy existing node_modules directory instead of running yarn install command
+  no-composer    : --no-composer : copy existing vendor directory instead of running composer install command
+  no-install     : --no-install  : alias for --no-yarn + --no-composer
+
+```
