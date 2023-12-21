@@ -31,6 +31,12 @@ RUNNING="⏳ "
 COMPLETED="✅"
 ERROR="❌"
 
+trap "exit 1" TERM
+export TOP_PID=$$
+kill_self(){
+  kill -s TERM "$TOP_PID"
+}
+
 lock_updat() {
   if [[ -f "$lock_file" ]]; then
     echo "Update prevented by $lock_file"
@@ -43,11 +49,32 @@ unlock_updat() {
 }
 check_args() {
   for arg in $@; do
+    if [[ $arg == "-h" ]]; then
+      echo "Usage: updat [-h] [-f] [-ni] [--no-yarn] [--no-composer] [--no-install]"
+      echo "Options:"
+      echo "  -h              : show this message"
+      echo "  -f              : force launch, remove .updatlock file if existing"
+      echo "  -ni             : no interactions, don't prompt disk usage and do not ask to validate (old directory must be erased manually)"
+      echo "  --no-yarn       : copy existing node_modules directory instead of running yarn install command"
+      echo "  --no-composer   : copy existing vendor directory instead of running composer install command"
+      echo "  --no-install    : alias for --no-yarn + --no-composer"
+      kill_self
+    fi
     if [[ $arg == "-f" ]]; then
       force=1
     fi
     if [[ $arg == "-ni" ]]; then
       no_interaction=1
+    fi
+    if [[ $arg == "--no-yarn" ]]; then
+      no_yarn=1
+    fi
+    if [[ $arg == "--no-composer" ]]; then
+      no_composer=1
+    fi
+    if [[ $arg == "--no-install" ]]; then
+      no_yarn=1
+      no_composer=1
     fi
   done
 }
@@ -237,21 +264,12 @@ load_config() {
   fi
   cd "$current_directory"
 
-#  echo "backup:"
-#  for files in $backup; do
-#    echo " - $files"
-#  done
 
-  disk_usage=$(check_server_disk_usage)
-  echo "$disk_usage"
-  read -ep $'Updating \e[32m'$domain$'\e[0m, a \e[32mphp'$php_ver-$type$'\e[0m project \e[32m'$user'@'$install_dir$'\e[0m (Press <Enter> to continue)'
-
-
-  #if [[ "$no_interaction" ]]; then
-  #  echo "" >/dev/null
-  #else
-  #  read -p "Is it ok ?"
-  #fi
+  if [[ -z "$no_interaction" ]]; then
+    disk_usage=$(check_server_disk_usage)
+    echo "$disk_usage"
+    read -ep $'Updating \e[32m'$domain$'\e[0m, a \e[32mphp'$php_ver-$type$'\e[0m project \e[32m'$user'@'$install_dir$'\e[0m (Press <Enter> to continue)'
+  fi
 }
 
 php_ver_composer() {
@@ -313,8 +331,6 @@ load_local_files() {
   done
 }
 
-trap "exit 1" TERM
-export TOP_PID=$$
 # nicer output for composer/yarn installs
 hilite() {
   error=""
@@ -339,7 +355,7 @@ hilite() {
       echo -e "${RETURN}\b ${CYAN}${loader:i++%${#loader}:1}${NC} $line"
     else
       error_lines="$error_lines$line"
-      kill -s TERM "$TOP_PID"
+      kill_self
     fi
   done
 
@@ -491,13 +507,22 @@ main(){
     composer_version=$(get_composer_version)
     composer self-update --"$composer_version" -q -n
 
-    # install using user's php version
-    php_ver_composer install 2>&1 | hilite "Composer install using php$php_ver" "composer"
+    if [[ -n "$no_composer" ]]; then
+      cp -r "$install_dir/vendor" "$temp_install_dir/vendor" | hilite "Composer copy" "composer"
+    else
+      # install using user's php version
+      php_ver_composer install 2>&1 | hilite "Composer install using php$php_ver" "composer"
+    fi
   fi
 
   # Npm build
   if [[ -f "package.json" ]]; then
-    yarn 2>&1 | hilite "YARN install" "yarn"
+    if [[ -n "$no_yarn" ]]; then
+      cp -r "$install_dir/node_modules" "$temp_install_dir/node_modules" | hilite "YARN copy" "yarn"
+    else
+      yarn 2>&1 | hilite "YARN install" "yarn"
+    fi
+
     yarn run build 2>&1 | hilite "YARN build" "yarn"
   fi
 
