@@ -17,6 +17,8 @@ composer_version=""
 tstamp=$(date +"%s")
 min_disk_usage=5000000 # ~ 5GB, used inside check_server_disk_usage
 
+export COMPOSER_ALLOW_SUPERUSER=1
+
 ###############
 # DEFINITIONS #
 ###############
