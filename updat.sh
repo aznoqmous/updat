@@ -489,7 +489,7 @@ main(){
 
   # Init Bitbucket SSH Key
   eval $(ssh-agent -t 120) >/dev/null 2>&1
-  ssh-add /root/.ssh/bitbucket_rsa >/dev/null 2>&1 | hilite "Initializing SSH Agent"
+  ssh-add /root/.ssh/bitbucket_rsa >/dev/null 2>&1 | hilite "Initializing SSH Agent" "ssh"
 
   # Load config duh
   load_config 2>&1
