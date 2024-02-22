@@ -488,7 +488,7 @@ main(){
   current_directory=$(pwd)
 
   # Init Bitbucket SSH Key
-  eval $(ssh-agent -t 120) 2>&1 | hilite "Initializing SSH Agent" "ssh"
+  eval $(ssh-agent -s -t 120) > /dev/null 2>&1
   ssh-add /root/.ssh/bitbucket_rsa 2>&1 | hilite "Initializing SSH Agent" "ssh"
 
   # Load config duh
