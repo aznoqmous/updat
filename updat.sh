@@ -64,6 +64,7 @@ check_args() {
       echo "  --no-yarn           : copy existing node_modules directory instead of running yarn install command"
       echo "  --no-composer       : copy existing vendor directory instead of running composer install command"
       echo "  --no-install        : alias for --no-yarn + --no-composer"
+      echo "  --no-status         : wont show git status"
       kill_self
     fi
     if [[ $arg == "-f" ]]; then
@@ -260,13 +261,15 @@ load_config() {
 
   # Show git status
   cd "$install_dir"
-  git fetch 2>&1 > /dev/null | hilite "Fetching $repository:$repository_branch"
-  git_status=$(git status -sb)
-  if [[ $(echo "$git_status" | grep "\[") ]]; then
-      echo -e "${YELLOW}Projet non à jour avec${NC} $repository:$repository_branch"
-      git status -sb
-    else
-      echo -e "${GREEN}Projet à jour sur ${NC} $repository:$repository_branch"
+  if [[ -z "$no_status" ]]; then
+    git fetch 2>&1 > /dev/null | hilite "Fetching $repository:$repository_branch"
+    git_status=$(git status -sb)
+    if [[ $(echo "$git_status" | grep "\[") ]]; then
+        echo -e "${YELLOW}Projet non à jour avec${NC} $repository:$repository_branch"
+        git status -sb
+      else
+        echo -e "${GREEN}Projet à jour sur ${NC} $repository:$repository_branch"
+    fi
   fi
   cd "$current_directory"
 
