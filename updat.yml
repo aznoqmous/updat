@@ -5,6 +5,8 @@ repository: vendor/repo:branch # :branch is optionnal, defaults to master
 domain: domain.com # optionnal
 php_ver: 7.3 # optionnal
 web_dir: www # optionnal defaults to www, take note that the real web_dir will be : "/home/$user/$web_dir"
+git_username: aznoqmous # optional, to use with git_token to provide a username:app_token authentification
+git_token: your token here # optional, to use with git_username to provide a username:app_token authentification
 backup: # optionnal, those folders/files will be saved before update and re-installed after update completion
   - files
   - config/parameters.yml

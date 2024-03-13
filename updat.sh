@@ -13,7 +13,8 @@ web_dir="www"
 backup_files=""
 post_install_cmd=""
 composer_version=""
-
+git_username=""
+git_token=""
 tstamp=$(date +"%s")
 min_disk_usage=5000000 # ~ 5GB, used inside check_server_disk_usage
 
@@ -501,7 +502,11 @@ main(){
 
   # Clone project
   rm -rf "$temp_install_dir"
-  git clone "git@bitbucket.org:$repository" -b "$repository_branch" "$temp_install_dir" 2>&1 | hilite "Git clone $repository" "git"
+  if [[ -z "$git_token" ]]; then
+    git clone "https://bitbucket.org/$repository" -b "$repository_branch" "$temp_install_dir" -vvv 2>&1 | hilite "Git clone $repository" "git"
+  else
+    git clone "https://$git_username:$git_token@bitbucket.org/$repository" -b "$repository_branch" "$temp_install_dir" -vvv 2>&1 | hilite "Git clone $repository" "git"
+  fi
 
   # Load saved local files
   load_local_files 2>&1 | hilite "Loading local files"
