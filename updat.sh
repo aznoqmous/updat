@@ -462,7 +462,7 @@ deployment_test(){
   cd "$install_dir"
 
   echo "Await response from $domain..."
-  response=$(curl -L --write-out '%{http_code}' --silent --output /dev/null "$domain")
+  response=$(curl -L -k --write-out '%{http_code}' --silent --output /dev/null "$domain")
   echo "$domain http status code [$response]"
 
   unlock_updat
