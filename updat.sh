@@ -64,7 +64,7 @@ check_args() {
       echo "  --no-yarn           : copy existing node_modules directory instead of running yarn install command"
       echo "  --no-composer       : copy existing vendor directory instead of running composer install command"
       echo "  --no-install        : alias for --no-yarn + --no-composer"
-      echo "  --no-status         : wont show git status"
+      echo "  --no-status         : wont perform and show git status"
       kill_self
     fi
     if [[ $arg == "-f" ]]; then
@@ -82,6 +82,9 @@ check_args() {
     if [[ $arg == "--no-install" ]]; then
       no_yarn=1
       no_composer=1
+    fi
+    if [[ $arg == "--no-status" ]]; then
+      no_status=1
     fi
   done
 }
