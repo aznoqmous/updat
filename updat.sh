@@ -34,11 +34,6 @@ RUNNING="⏳ "
 COMPLETED="✅"
 ERROR="❌"
 
-trap "exit 1" TERM
-export TOP_PID=$$
-kill_self(){
-  kill -s TERM "$TOP_PID"
-}
 
 lock_updat() {
   if [[ -f "$lock_file" ]]; then
@@ -50,6 +45,15 @@ lock_updat() {
 unlock_updat() {
   rm -f "$lock_file"
 }
+
+trap "exit 1" TERM
+export TOP_PID=$$
+kill_self(){
+  unlock_updat
+  kill -s TERM "$TOP_PID"
+}
+
+
 check_args() {
   for arg in $@; do
     if [[ $arg == "-h" ]]; then
