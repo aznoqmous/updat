@@ -335,6 +335,8 @@ backup_load() {
 }
 
 save_local_files() {
+  rm -rf "$backup_folder"
+  mkdir -p "$backup_folder"
   for files in $backup; do
     backup_save "$files"
   done
