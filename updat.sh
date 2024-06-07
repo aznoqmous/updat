@@ -533,7 +533,7 @@ main(){
       cp -r "$install_dir/vendor" "$temp_install_dir/vendor" | hilite "Composer copy" "composer"
     else
       # install using user's php version
-      php_ver_composer install 2>&1 | hilite "Composer install using php$php_ver" "composer"
+      php_ver_composer install --no-dev 2>&1 | hilite "Composer install using php$php_ver" "composer"
     fi
   fi
 
