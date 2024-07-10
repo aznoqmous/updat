@@ -208,6 +208,7 @@ parse_yml() {
   fi
 
   while read var value; do
+    value=$(echo "$value" | sed -E "s/#.*$//g" | xargs)
     if [[ -z $(echo "$var" | grep -v ":") ]]; then
       # basic key: value
       current_var=$(echo "$var" | sed "s/://g")
